@@ -24,6 +24,13 @@
 
   let currentFile = null, currentInfo = null, currentSrc = null, currentTrans = null;
   let decompileMs = 0;
+  let decompiling = false;       // 反编译进行中
+  let pendingTranslate = false;  // 反编译进行中点了翻译 → 排队，结果出来后自动翻译
+
+  // 翻译按钮状态：点击反编译后（进行中或已完成）才亮；未开始反编译前黑
+  function updateTranslateBtn() {
+    els.btnTranslate.disabled = !(currentInfo && currentInfo.canTranslate && (decompiling || currentSrc));
+  }
 
   // ---------- 工具 ----------
   function fmtSize(n) {
@@ -165,6 +172,9 @@
       alert("「" + currentInfo.label + "」的完整反编译引擎将在 Windows/Android 端提供（JADX/ILSpy 原生）。当前网页端已支持 rpyc/rpymc/rpa/pyc 真实反编译。");
       return;
     }
+    // 点击反编译 → 翻译按钮立即亮起（可翻译格式）；此时点翻译会排队，等结果出来后自动执行
+    decompiling = true;
+    updateTranslateBtn();
     els.btnDecompile.disabled = true;
     els.progressWrap.classList.remove("hidden");
     els.progressLog.textContent = "";
@@ -180,12 +190,20 @@
       showResult(currentSrc, null, decompileMs);
       setBar(100);
       log("✓ 完成");
+      // 若用户提前点了翻译 → 反编译结果出来后自动执行翻译，全部一起吐出
+      if (pendingTranslate) {
+        pendingTranslate = false;
+        await runTranslate();
+      }
     } catch (e) {
+      pendingTranslate = false;
       log("✗ 错误：" + e.message);
       els.runtimeDot.className = "dot error";
       els.runtimeText.textContent = "反编译失败";
       alert("反编译失败：" + e.message);
     } finally {
+      decompiling = false;
+      updateTranslateBtn();
       els.btnDecompile.disabled = false;
     }
   }
@@ -193,8 +211,8 @@
   // ---------- 结果 ----------
   function showResult(src, trans, ms) {
     currentSrc = src; currentTrans = trans;
-    // 反编译完成 → 翻译按钮亮起（可翻译格式）；用户点翻译后再一起吐出
-    els.btnTranslate.disabled = !(currentInfo && currentInfo.canTranslate);
+    // 反编译完成 → 翻译按钮保持亮（可翻译格式）；用户点翻译后再一起吐出
+    updateTranslateBtn();
     const lines = String(src).split("\n").length;
     els.resultStats.innerHTML = `${lines} 行 · ${src.length.toLocaleString()} 字符${ms ? " · " + ms + " ms" : ""}`;
     renderCode(els.srcView, src, true);
@@ -237,6 +255,7 @@
   // ---------- 重置 ----------
   els.btnReset.addEventListener("click", () => {
     currentFile = currentInfo = currentSrc = currentTrans = null;
+    decompiling = false; pendingTranslate = false;
     els.fileInput.value = "";
     els.fileList.innerHTML = "";
     els.cardInfo.classList.add("hidden");
@@ -260,8 +279,8 @@
       const hasKey = !!AxiomTranslate.getApiKey();
       els.keyRow.classList.toggle("hidden", hasKey);
       if (!hasKey) els.apiKey.value = "";
-      // 反编译完成后才可翻译（用户流程：选文件→反编译→翻译按钮亮→点翻译）
-      els.btnTranslate.disabled = !(currentSrc && currentInfo && currentInfo.canTranslate);
+      // 翻译按钮：点击反编译后亮；未反编译前黑
+      updateTranslateBtn();
     } else {
       els.btnTranslate.disabled = true;
     }
@@ -269,12 +288,29 @@
   els.btnSaveKey.addEventListener("click", () => {
     AxiomTranslate.setApiKey(els.apiKey.value);
     els.keyRow.classList.add("hidden");
-    els.btnTranslate.disabled = !(currentSrc && currentInfo && currentInfo.canTranslate);
+    updateTranslateBtn();
   });
 
   els.btnTranslate.addEventListener("click", async () => {
-    if (!currentSrc) { alert("请先完成反编译，翻译按钮会在反编译完成后亮起。"); return; }
-    if (!currentInfo || !currentInfo.canTranslate) { alert("该格式暂不支持翻译。"); return; }
+    if (!currentFile || !currentInfo) return;
+    if (!currentInfo.canTranslate) { alert("该格式暂不支持翻译。"); return; }
+    // 反编译还没完成（进行中）→ 排队：等结果出来后自动翻译，翻译完一起吐出
+    if (!currentSrc) {
+      if (!AxiomTranslate.getApiKey()) {
+        els.keyRow.classList.remove("hidden");
+        alert("请先填写 DeepSeek API Key 并保存（仅存于本机浏览器）。");
+        return;
+      }
+      if (pendingTranslate) { log("翻译已在队列中，等待反编译结果…"); return; }
+      pendingTranslate = true;
+      log("翻译已排队：等反编译结果出来后自动执行…");
+      return;
+    }
+    await runTranslate();
+  });
+
+  async function runTranslate() {
+    if (!currentSrc) return;
     if (!AxiomTranslate.getApiKey()) {
       els.keyRow.classList.remove("hidden");
       alert("请先填写 DeepSeek API Key 并保存（仅存于本机浏览器）。");
@@ -302,7 +338,7 @@
     } finally {
       els.btnTranslate.disabled = false;
     }
-  });
+  }
 
   // ---------- 启动 ----------
   if (AxiomTranslate.getApiKey()) { els.apiKey.value = "••••••••"; }
@@ -323,13 +359,18 @@
         const buf = await resp.arrayBuffer();
         const file = new File([buf], "the_question_script.rpyc", { type: "application/octet-stream" });
         await handleFiles([file]);
+        // 翻译按钮状态流：选文件后黑（未反编译）→ 反编译完成亮
+        const tBefore = els.btnTranslate.disabled;
         await new Promise(r => setTimeout(r, 400));
         await runDecompile();
         await new Promise(r => setTimeout(r, 600));
+        const tAfter = els.btnTranslate.disabled;
         const ok = els.cardResult.classList.contains("hidden") === false;
         const stats = els.resultStats.textContent;
         const sample = els.srcView.textContent.slice(0, 500);
-        const head = [AxiomFormats, "FORMAT_OK", stats, "SRC_HEAD_START", sample, "SRC_HEAD_END",
+        const head = [AxiomFormats, "FORMAT_OK", "TRANSBTN_BEFORE=" + tBefore, "TRANSBTN_AFTER=" + tAfter,
+          "TRANSBTN_FLOW=" + (tBefore === true && tAfter === false ? "OK" : "FAIL"),
+          stats, "SRC_HEAD_START", sample, "SRC_HEAD_END",
           ok ? "UI_FLOW_OK" : "UI_FLOW_FAIL", document.title].join("\n>>> ");
         await post(head);
         document.title = ok ? "AXIOM_UI_OK" : "AXIOM_UI_FAIL";
