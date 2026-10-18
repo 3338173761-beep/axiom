@@ -40,26 +40,35 @@ const AxiomTranslate = (function () {
     return data.choices?.[0]?.message?.content || "";
   }
 
-  // ---------- 文本段翻译（分批，带语境） ----------
+  // ---------- 文本段翻译（分批，带语境；同语言=用户对现有译文不满意→二次润色重译） ----------
+  const LANG_NAMES = { zh: "中文", en: "英文", ja: "日文" };
+
   async function translateSegments(segs, from, to, onLog) {
     const results = new Array(segs.length).fill(null);
     const BATCH = 12;
+    // 同语言（或源为自动时目标语言）：视为"重译润色"，不是原样返回
+    const sameLang = from !== "auto" && from === to;
+    const targetName = LANG_NAMES[to] || to || "中文";
+    const sourceName = from === "auto" ? "原文" : (LANG_NAMES[from] || from);
     for (let i = 0; i < segs.length; i += BATCH) {
       const batch = segs.slice(i, i + BATCH);
       const lines = batch.map((s, j) => `#${i + j + 1} ${s.text}`).join("\n");
-      const sys = [
-        "你是一名专业的游戏本地化译者。任务：将 Ren'Py 游戏脚本中的对话/文本从",
-        from === "en" ? "英文" : "中文",
-        "翻译成",
-        to === "en" ? "英文" : "中文",
-        "。",
-        "要求：1) 按角色语气与上下文语境翻译，译文自然，不是逐字机翻；",
-        "2) 保留人名、地名、专有名词原文不译；",
-        "3) 保留 [xx]、{xx}、{{xx}}、[[xx]] 等插值标签与占位符原样；",
-        "4) 严格按输入编号输出，每行一条译文，格式“#编号 译文”，不要输出其他内容。"
-      ].join("");
+      let sys;
+      if (sameLang) {
+        sys = "你是一名专业的游戏本地化译者。用户对现有【" + targetName + "】译文不满意，要求你把以下文本重新翻译成更优质的" + targetName + "（重译+润色，而不是原样返回）：" +
+          "要求：1) 深入理解语境后重译，表达更自然、地道、流畅，明显优于原翻译；" +
+          "2) 保留人名、地名、专有名词与发音标记原文；" +
+          "3) 保留 [xx]、{xx}、{{xx}}、[[xx]] 等插值标签与占位符原样；" +
+          "4) 严格按输入编号输出，每行一条译文，格式“#编号 译文”，不要输出其他内容。";
+      } else {
+        sys = "你是一名专业的游戏本地化译者。任务：将游戏脚本中的对话/文本从" + sourceName + "翻译成" + targetName + "。" +
+          "要求：1) 按角色语气与上下文语境翻译，译文自然，不是逐字机翻；" +
+          "2) 保留人名、地名、专有名词原文不译；" +
+          "3) 保留 [xx]、{xx}、{{xx}}、[[xx]] 等插值标签与占位符原样；" +
+          "4) 严格按输入编号输出，每行一条译文，格式“#编号 译文”，不要输出其他内容。";
+      }
       const prompt = `原文段：\n${lines}`;
-      onLog && onLog(`翻译批次 ${Math.floor(i / BATCH) + 1}/${Math.ceil(segs.length / BATCH)}（${batch.length} 段）…`);
+      onLog && onLog(`翻译批次 ${Math.floor(i / BATCH) + 1}/${Math.ceil(segs.length / BATCH)}（${batch.length} 段）${sameLang ? " · 二次润色模式" : ""}…`);
       let out;
       try {
         out = await callDeepSeek([

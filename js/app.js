@@ -193,6 +193,8 @@
   // ---------- 结果 ----------
   function showResult(src, trans, ms) {
     currentSrc = src; currentTrans = trans;
+    // 反编译完成 → 翻译按钮亮起（可翻译格式）；用户点翻译后再一起吐出
+    els.btnTranslate.disabled = !(currentInfo && currentInfo.canTranslate);
     const lines = String(src).split("\n").length;
     els.resultStats.innerHTML = `${lines} 行 · ${src.length.toLocaleString()} 字符${ms ? " · " + ms + " ms" : ""}`;
     renderCode(els.srcView, src, true);
@@ -258,7 +260,8 @@
       const hasKey = !!AxiomTranslate.getApiKey();
       els.keyRow.classList.toggle("hidden", hasKey);
       if (!hasKey) els.apiKey.value = "";
-      els.btnTranslate.disabled = !currentSrc;
+      // 反编译完成后才可翻译（用户流程：选文件→反编译→翻译按钮亮→点翻译）
+      els.btnTranslate.disabled = !(currentSrc && currentInfo && currentInfo.canTranslate);
     } else {
       els.btnTranslate.disabled = true;
     }
@@ -266,11 +269,12 @@
   els.btnSaveKey.addEventListener("click", () => {
     AxiomTranslate.setApiKey(els.apiKey.value);
     els.keyRow.classList.add("hidden");
-    els.btnTranslate.disabled = !currentSrc;
+    els.btnTranslate.disabled = !(currentSrc && currentInfo && currentInfo.canTranslate);
   });
 
   els.btnTranslate.addEventListener("click", async () => {
-    if (!currentSrc) return;
+    if (!currentSrc) { alert("请先完成反编译，翻译按钮会在反编译完成后亮起。"); return; }
+    if (!currentInfo || !currentInfo.canTranslate) { alert("该格式暂不支持翻译。"); return; }
     if (!AxiomTranslate.getApiKey()) {
       els.keyRow.classList.remove("hidden");
       alert("请先填写 DeepSeek API Key 并保存（仅存于本机浏览器）。");
