@@ -204,6 +204,71 @@ MIME = {
     ".exe": "application/octet-stream", ".txt": "text/plain; charset=utf-8",
 }
 
+# ---------------- 安卓打包工具链检测（内置下载器前置） ----------------
+def toolcheck():
+    """检测本机安卓打包环境：Java / keytool / apktool / Android SDK / d8 / apksigner / zipalign"""
+    import glob as _glob
+    results = []
+
+    def probe(tool, candidates):
+        for p in candidates:
+            if p and os.path.isfile(p):
+                return p
+        return None
+
+    # Java
+    java = probe("java", [
+        r"F:\jdk17\jdk-17.0.20+8\bin\java.exe",
+        os.environ.get("JAVA_HOME", "") + r"\bin\java.exe",
+    ])
+    keytool = probe("keytool", [
+        r"F:\jdk17\jdk-17.0.20+8\bin\keytool.exe",
+        os.environ.get("JAVA_HOME", "") + r"\bin\keytool.exe",
+    ])
+    # Android SDK + build-tools
+    sdk = r"F:\android-sdk" if os.path.isdir(r"F:\android-sdk") else None
+    d8 = aapt = apksigner = zipalign = None
+    bt_dirs = []
+    if sdk:
+        bt = os.path.join(sdk, "build-tools")
+        if os.path.isdir(bt):
+            bt_dirs = sorted(_glob.glob(os.path.join(bt, "*")), reverse=True)
+    for d in bt_dirs:
+        if not d8:
+            d8 = probe("d8", [os.path.join(d, "d8.bat")])
+        if not aapt:
+            aapt = probe("aapt", [os.path.join(d, "aapt.exe")])
+        if not apksigner:
+            apksigner = probe("apksigner", [os.path.join(d, "apksigner.bat")])
+        if not zipalign:
+            zipalign = probe("zipalign", [os.path.join(d, "zipalign.exe")])
+    # apktool（jar 或命令）
+    apktool = None
+    for p in [r"F:\apktool\apktool.jar", r"E:\apktool\apktool.jar", r"F:\apktool.jar",
+              r"E:\Axiom\web\test\apktool.jar"]:
+        if os.path.isfile(p):
+            apktool = p
+            break
+    if not apktool:
+        import shutil
+        if shutil.which("apktool"):
+            apktool = "PATH:apktool"
+
+    results.append({"tool": "Java", "ok": bool(java), "path": java or "", "need": "汉化重编译必需"})
+    results.append({"tool": "keytool", "ok": bool(keytool), "path": keytool or "", "need": "APK 签名必需"})
+    results.append({"tool": "Android SDK", "ok": bool(sdk), "path": sdk or "", "need": "打包环境"})
+    results.append({"tool": "d8/dex", "ok": bool(d8), "path": d8 or "", "need": "DEX 重编译"})
+    results.append({"tool": "aapt", "ok": bool(aapt), "path": aapt or "", "need": "资源编译"})
+    results.append({"tool": "apksigner", "ok": bool(apksigner), "path": apksigner or "", "need": "APK 签名"})
+    results.append({"tool": "zipalign", "ok": bool(zipalign), "path": zipalign or "", "need": "APK 对齐"})
+    results.append({"tool": "apktool", "ok": bool(apktool), "path": apktool or "", "need": "APK 解包/回包"})
+    missing = [r["tool"] for r in results if not r["ok"]]
+    ready = all(r["ok"] for r in results if r["need"] in ("APK 解包/回包", "APK 签名", "DEX 重编译"))
+    return {"results": results, "missing": missing,
+            "ready": ready and not missing,
+            "hint": "缺失项由内置下载器自动下载（下一阶段接入）" if missing else "工具链完整"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):  # 关闭默认请求日志（噪音）
         pass
@@ -268,6 +333,32 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 log("FAIL", "%s 引擎异常: %s" % (kind, e))
                 self.send_json({"ok": False, "err": str(e), "engine": kind, "desc": desc})
+            return
+        if self.path == "/scan":
+            ln = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(ln)
+            try:
+                req = json.loads(raw.decode("utf-8"))
+                name = req.get("name", "input.dll")
+                b64 = req.get("b64", "")
+                data = base64.b64decode(b64)
+            except Exception as e:
+                self.send_json({"ok": False, "err": "请求解析失败: %s" % e})
+                return
+            t0 = time.time()
+            log("JOB", "安全扫描: %s (%.1f KB) → 全量反编译 + 特征检测…" % (name, len(data) / 1024))
+            try:
+                import scan_engine
+                summary, findings, out = scan_engine.scan(data, name)
+                report = scan_engine.render_report(summary, findings, name, out)
+                ms = int((time.time() - t0) * 1000)
+                log("DONE", "扫描完成 %s → 风险等级 %s（评分 %d）· %d ms"
+                    % (name, summary["risk_level"], summary["risk_score"], ms))
+                self.send_json({"ok": True, "summary": summary, "findings": findings,
+                                "report": report, "ms": ms})
+            except Exception as e:
+                log("FAIL", "扫描异常: %s" % e)
+                self.send_json({"ok": False, "err": str(e)})
             return
         self.send_json({"ok": False, "err": "unknown endpoint"})
 

@@ -77,12 +77,17 @@ main { flex:1; display:flex; min-height:0; }
   <span class="tag" id="engineTag">引擎检测中…</span>
 </header>
 <main>
+  <!-- 模式切换 -->
+  <div class="tabs" style="position:absolute; top:52px; left:18px; z-index:10; display:flex; gap:8px;">
+    <button class="tabbtn active" id="tabDec" style="background:#0d1420;border:1px solid #1e293b;color:var(--cyan);padding:6px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;">反编译</button>
+    <button class="tabbtn" id="tabScan" style="background:#0d1420;border:1px solid #1e293b;color:#f87171;padding:6px 16px;border-radius:8px;cursor:pointer;font-family:inherit;font-size:12px;">DLL 安全扫描</button>
+  </div>
   <!-- 左：主屏 -->
   <section class="col col-left">
-    <div class="col-head"><span class="bar"></span>反编译输出</div>
+    <div class="col-head"><span class="bar"></span><span id="colTitle">反编译输出</span></div>
     <div class="drop" id="dropZone">
-      <div class="big">把文件拖到这里，或点击选择</div>
-      <div class="hint">支持 rpyc / rpa / pyc / dex / apk / jar / class / dll / exe / so / zip / 文本… 全格式自动识别</div>
+      <div class="big" id="dropBig">把文件拖到这里，或点击选择</div>
+      <div class="hint" id="dropHint">支持 rpyc / rpa / pyc / dex / apk / jar / class / dll / exe / so / zip / 文本… 全格式自动识别</div>
     </div>
     <input type="file" id="fileInput">
     <div class="output" id="output"><span id="outPlaceholder">等待文件…</span></div>
@@ -100,6 +105,28 @@ const $ = (s) => document.querySelector(s);
 const dropZone = $("#dropZone"), fileInput = $("#fileInput"), output = $("#output");
 const term = $("#term");
 let termSeen = 0;
+let mode = "dec"; // dec = 反编译, scan = DLL 安全扫描
+
+// ---- 模式切换 ----
+$("#tabDec").addEventListener("click", () => setMode("dec"));
+$("#tabScan").addEventListener("click", () => setMode("scan"));
+function setMode(m) {
+  mode = m;
+  $("#tabDec").style.borderColor = m === "dec" ? "var(--cyan)" : "#1e293b";
+  $("#tabDec").style.boxShadow = m === "dec" ? "0 0 10px rgba(34,211,238,.3)" : "none";
+  $("#tabScan").style.borderColor = m === "scan" ? "#f87171" : "#1e293b";
+  $("#tabScan").style.boxShadow = m === "scan" ? "0 0 10px rgba(248,113,113,.3)" : "none";
+  if (m === "scan") {
+    $("#colTitle").textContent = "安全扫描报告";
+    $("#dropBig").textContent = "把 DLL / EXE 拖到这里进行安全扫描";
+    $("#dropHint").textContent = "全量反编译 + 导入表/字符串/注入特征检测 · 风险评分 · 杀毒软件 Pro Max";
+  } else {
+    $("#colTitle").textContent = "反编译输出";
+    $("#dropBig").textContent = "把文件拖到这里，或点击选择";
+    $("#dropHint").textContent = "支持 rpyc / rpa / pyc / dex / apk / jar / class / dll / exe / so / zip / 文本… 全格式自动识别";
+  }
+  output.innerHTML = '<span id="outPlaceholder">等待文件…</span>';
+}
 
 // ---- 拖放 ----
 dropZone.addEventListener("click", () => fileInput.click());
@@ -110,9 +137,32 @@ dropZone.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) handleFi
 
 async function handleFile(file) {
   $("#outPlaceholder") && ($("#outPlaceholder").style.display = "none");
-  output.innerHTML = '<span class="engine-tag">▸ 提交 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+  if (mode === "scan") {
+    output.innerHTML = '<span class="engine-tag" style="color:#f87171">▸ 安全扫描 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
+    try {
+      const r = await fetch("/scan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, b64 })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        const s = j.summary, lv = s.risk_level;
+        const color = lv.indexOf("严重") >= 0 ? "#f87171" : lv.indexOf("高危") >= 0 ? "#fb923c" : lv.indexOf("中危") >= 0 ? "#fbbf24" : "#34d399";
+        output.innerHTML = '<div style="font-size:16px;margin-bottom:6px">风险等级：<b style="color:' + color + '">' + lv + '</b>（评分 ' + s.risk_score + '）</div>' +
+          '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px">命中特征 ' + s.findings_count + ' 项 · 导入函数 ' + s.import_count + ' 个 · 字符串 ' + s.string_count + ' 条' + (s.dotnet ? ' · .NET 程序集' : '') + ' · 耗时 ' + j.ms + ' ms</div>' +
+          '<div style="border-top:1px solid #1e293b;padding-top:10px">' + escapeHtml(j.report).split("\n").slice(0, 60).join("<br>") + '</div>';
+      } else {
+        output.innerHTML = '<div class="err">✘ ' + escapeHtml(j.err) + '</div>';
+      }
+    } catch (e) {
+      output.innerHTML = '<div class="err">✘ 扫描失败：' + escapeHtml(e.message) + '</div>';
+    }
+    return;
+  }
+  $("#outPlaceholder") && ($("#outPlaceholder").style.display = "none");
+  output.innerHTML = '<span class="engine-tag">▸ 提交 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
   try {
     const r = await fetch("/decompile", {
       method: "POST", headers: { "Content-Type": "application/json" },

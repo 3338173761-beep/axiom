@@ -15,7 +15,10 @@ const AxiomEngines = (function () {
   const PYODIDE_VERSION = "v0.28.0";
   const PYODIDE_CDN = `https://cdn.jsdelivr.net/pyodide/${PYODIDE_VERSION}/full/pyodide.js`;
   const PYODIDE_CDN_BACKUP = `https://pyodide-cdn2.iodide.io/${PYODIDE_VERSION}/full/pyodide.js`;
-  const WHEELS_BASE = "/test/wheels";
+  // 仓库根动态计算：本地根部署("/") 与 GitHub Pages 子路径("/axiom/") 都兼容
+  const REPO_BASE = location.pathname.replace(/\/[^\/]*$/, "/");
+  const WHEELS_BASE = REPO_BASE + "test/wheels";
+  const PY_BASE = REPO_BASE + "py/";
 
   const registry = {};
   let pyodide = null;
@@ -102,7 +105,7 @@ const AxiomEngines = (function () {
         p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py");
       } catch (e) {}
       try { p.FS.mkdir("/axiom/py"); } catch (e) {}
-      const resp = await fetch(`/py/${name}.py`);
+      const resp = await fetch(`${PY_BASE}${name}.py`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
