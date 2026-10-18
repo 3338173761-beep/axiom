@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AXIOM · Windows 桌面端</title>
+<script>
+/* 设备区分：手机访问桌面端页面 → 自动跳回原网页端（index.html）
+   桌面端是电脑专用界面（双栏黑客终端），手机端保持原网页端不变 */
+(function () {
+  var isMobile = /Android|iPhone|iPad|iPod|Mobile|MQQBrowser|UCBrowser|MicroMessenger/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && screen.width < 900);
+  if (isMobile) { location.replace("/index.html"); }
+})();
+</script>
+<style>
+:root { --bg:#05070f; --panel:#0b1020; --cyan:#22d3ee; --green:#34d399; --red:#f87171; --dim:#64748b; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html,body { height:100%; background:var(--bg); color:#cbd5e1; font-family:"Cascadia Code","JetBrains Mono",Consolas,monospace; }
+body { display:flex; flex-direction:column; overflow:hidden; }
+
+/* 顶栏 */
+header { display:flex; align-items:center; gap:14px; padding:10px 18px; background:linear-gradient(90deg,#0b1020,#101a30); border-bottom:1px solid #1e293b; }
+.logo { font-weight:700; font-size:20px; letter-spacing:2px; color:var(--cyan); text-shadow:0 0 12px rgba(34,211,238,.5); }
+.logo span { color:var(--green); }
+.status { font-size:11px; color:var(--dim); }
+.dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); margin-right:5px; animation:pulse 2s infinite; }
+@keyframes pulse { 50% { opacity:.4; } }
+.spacer { flex:1; }
+.tag { font-size:10px; padding:3px 10px; border:1px solid #1e293b; border-radius:20px; color:var(--dim); background:#0d1420; }
+
+/* 主体双栏 */
+main { flex:1; display:flex; min-height:0; }
+.col { display:flex; flex-direction:column; min-width:0; }
+.col-left { flex:1.4; border-right:1px solid #1e293b; }
+.col-right { flex:1; background:#02040a; }
+.col-head { padding:8px 14px; font-size:11px; letter-spacing:2px; color:var(--dim); border-bottom:1px solid #1e293b; background:#0a0f1c; display:flex; align-items:center; gap:8px; }
+.col-head .bar { width:4px; height:12px; background:var(--cyan); border-radius:2px; }
+
+/* 拖放区 */
+.drop { margin:12px; padding:26px; border:2px dashed #1e293b; border-radius:12px; text-align:center; cursor:pointer; transition:.2s; background:rgba(13,20,32,.5); }
+.drop:hover, .drop.over { border-color:var(--cyan); background:rgba(34,211,238,.06); box-shadow:0 0 20px rgba(34,211,238,.12) inset; }
+.drop .big { font-size:15px; color:#94a3b8; }
+.drop .hint { font-size:11px; color:var(--dim); margin-top:6px; }
+#fileInput { display:none; }
+
+/* 输出区 */
+.output { flex:1; overflow:auto; margin:0 12px 12px; padding:14px; background:#070b14; border:1px solid #141d2e; border-radius:10px; white-space:pre-wrap; font-size:12.5px; line-height:1.55; }
+.output .engine-tag { color:var(--cyan); }
+.output .err { color:var(--red); }
+#outPlaceholder { color:#475569; }
+
+/* 终端 */
+#term { flex:1; overflow:auto; padding:10px 12px; font-size:12px; line-height:1.5; white-space:pre-wrap; }
+.term-line { word-break:break-all; }
+.term-time { color:#475569; }
+.term-AXIOM { color:var(--cyan); }
+.term-ENGINE { color:#fbbf24; }
+.term-JOB { color:#a78bfa; }
+.term-DONE { color:var(--green); }
+.term-FAIL, .term-WARN { color:var(--red); }
+.term-SYS { color:#94a3b8; }
+.cursor { display:inline-block; width:8px; height:14px; background:var(--green); animation:blink 1s step-end infinite; vertical-align:-2px; }
+@keyframes blink { 50% { background:transparent; } }
+
+/* 响应式：窄屏上下堆叠 */
+@media (max-width:860px) {
+  main { flex-direction:column; }
+  .col-right { border-top:1px solid #1e293b; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AXI<span>OM</span></div>
+  <span class="status"><span class="dot"></span>本地引擎在线</span>
+  <div class="spacer"></div>
+  <span class="tag" id="engineTag">引擎检测中…</span>
+</header>
+<main>
+  <!-- 左：主屏 -->
+  <section class="col col-left">
+    <div class="col-head"><span class="bar"></span>反编译输出</div>
+    <div class="drop" id="dropZone">
+      <div class="big">把文件拖到这里，或点击选择</div>
+      <div class="hint">支持 rpyc / rpa / pyc / dex / apk / jar / class / dll / exe / so / zip / 文本… 全格式自动识别</div>
+    </div>
+    <input type="file" id="fileInput">
+    <div class="output" id="output"><span id="outPlaceholder">等待文件…</span></div>
+  </section>
+  <!-- 右：黑客终端 -->
+  <section class="col col-right">
+    <div class="col-head"><span class="bar"></span>实时执行日志</div>
+    <div id="term"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const dropZone = $("#dropZone"), fileInput = $("#fileInput"), output = $("#output");
+const term = $("#term");
+let termSeen = 0;
+
+// ---- 拖放 ----
+dropZone.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+["dragover", "dragenter"].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.add("over"); }));
+["dragleave", "drop"].forEach(ev => dropZone.addEventListener(ev, (e) => { e.preventDefault(); dropZone.classList.remove("over"); }));
+dropZone.addEventListener("drop", (e) => { if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+async function handleFile(file) {
+  $("#outPlaceholder") && ($("#outPlaceholder").style.display = "none");
+  output.innerHTML = '<span class="engine-tag">▸ 提交 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
+  const buf = await file.arrayBuffer();
+  const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+  try {
+    const r = await fetch("/decompile", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, b64 })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      output.innerHTML = '<div class="engine-tag">引擎：' + j.desc + ' · 耗时 ' + j.ms + ' ms</div><br>' + escapeHtml(j.out);
+    } else {
+      output.innerHTML = '<div class="err">✘ ' + escapeHtml(j.err) + '</div>';
+    }
+  } catch (e) {
+    output.innerHTML = '<div class="err">✘ 请求失败：' + escapeHtml(e.message) + '</div>';
+  }
+}
+function escapeHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+// ---- 终端轮询 ----
+async function pollLog() {
+  try {
+    const r = await fetch("/log");
+    const j = await r.json();
+    const lines = j.lines || [];
+    if (lines.length > termSeen) {
+      for (const l of lines.slice(termSeen)) {
+        const div = document.createElement("div");
+        div.className = "term-line";
+        const m = l.match(/^\[([^\]]+)\] \[([^\]]+)\] (.*)$/s);
+        if (m) {
+          div.innerHTML = '<span class="term-time">[' + m[1] + ']</span> <span class="term-' + m[2] + '">[' + m[2] + ']</span> ' + escapeHtml(m[3]);
+        } else {
+          div.textContent = l;
+        }
+        term.appendChild(div);
+      }
+      termSeen = lines.length;
+      term.scrollTop = term.scrollHeight;
+    }
+    if (!document.querySelector(".cursor")) {
+      const c = document.createElement("span"); c.className = "cursor"; term.appendChild(c);
+    }
+  } catch (e) {}
+}
+setInterval(pollLog, 1200);
+pollLog();
+
+// ---- 引擎状态 ----
+fetch("/api/status").then(r => r.json()).then(j => {
+  $("#engineTag").textContent = "引擎: " + j.engines.join(" / ");
+}).catch(() => {});
+</script>
+</body>
+</html>

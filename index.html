@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Axiom · 多格式自动反编译器</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- 背景装饰 -->
+<div class="bg-glow" aria-hidden="true"></div>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<!-- 顶栏 -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <path d="M16 2 30 16 16 30 2 16Z" fill="none" stroke="url(#lg)" stroke-width="2.6"/>
+        <path d="M16 8 24 16 16 24 8 16Z" fill="url(#lg)" opacity="0.9"/>
+      </svg>
+      <div class="brand-text">
+        <span class="brand-name">Axiom</span>
+        <span class="brand-sub">多格式自动反编译器</span>
+      </div>
+    </div>
+    <div class="engine-badge" id="engineBadge">
+      <span class="dot" id="runtimeDot"></span>
+      <span id="runtimeText">引擎未加载</span>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1 class="hero-title">把编译过的脚本，<em>还原成源码</em></h1>
+    <p class="hero-sub">rpyc · rpa · pyc · apk · dex · jar —— 拖进来，引擎在浏览器内本地运行，文件不上传</p>
+    <div class="fmt-cloud" id="fmtCloud"></div>
+  </section>
+
+  <!-- 工作区 -->
+  <div class="workspace">
+
+    <!-- 左列：上传 -->
+    <section class="card upload-card">
+      <div class="card-head">
+        <span class="step-no">1</span>
+        <h2>上传文件</h2>
+      </div>
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="上传文件">
+        <svg class="dz-icon" viewBox="0 0 24 24" width="44" height="44" aria-hidden="true">
+          <path d="M12 16V7M12 7l-4 4M12 7l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="dz-title">点击选择，或将文件拖到这里</div>
+        <div class="dz-hint">支持 .rpyc / .rpymc / .rpa / .pyc / .dex / .apk / .jar 等</div>
+        <input type="file" id="fileInput" hidden>
+      </div>
+      <div id="fileList" class="file-list"></div>
+      <div class="privacy-note">
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 12l2 2 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        文件仅在浏览器本地处理，不上传服务器
+      </div>
+    </section>
+
+    <!-- 右列：工作流 -->
+    <div class="flow">
+
+      <!-- 2 识别 -->
+      <section class="card hidden" id="cardInfo">
+        <div class="card-head"><span class="step-no">2</span><h2>格式识别</h2></div>
+        <div id="formatBanner"></div>
+      </section>
+
+      <!-- 3 设置 -->
+      <section class="card hidden" id="cardActions">
+        <div class="card-head"><span class="step-no">3</span><h2>反编译与翻译</h2></div>
+
+        <div class="set-row">
+          <label class="set-label" for="outputName">输出文件名</label>
+          <input type="text" id="outputName" class="text-input" value="axiom-output">
+        </div>
+
+        <div class="set-row">
+          <div class="set-label-wrap">
+            <label class="set-label">AI 语境翻译</label>
+            <span class="set-tip">DeepSeek · 按语境非机翻 · 中 ↔ 英</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="translateToggle">
+            <span class="switch-slider"></span>
+          </label>
+        </div>
+
+        <div id="translateOptions" class="hidden">
+          <div class="set-row lang-row">
+            <select id="langFrom" class="select-input">
+              <option value="auto">自动检测</option>
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+              <option value="ja">日本語</option>
+            </select>
+            <span class="lang-arrow">→</span>
+            <select id="langTo" class="select-input">
+              <option value="zh">中文</option>
+              <option value="en" selected>English</option>
+              <option value="ja">日本語</option>
+            </select>
+          </div>
+          <div id="keyRow" class="set-row key-row hidden">
+            <input type="password" id="apiKey" class="text-input" placeholder="DeepSeek API Key（存于本地浏览器）">
+            <button id="btnSaveKey" class="btn btn-ghost">保存</button>
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <button id="btnDecompile" class="btn btn-primary" disabled>
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 3v12M12 3 8 7M12 3l4 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            开始反编译
+          </button>
+          <button id="btnTranslate" class="btn btn-secondary" disabled>翻译文本</button>
+          <button id="btnReset" class="btn btn-ghost">重新开始</button>
+        </div>
+      </section>
+
+      <!-- 4 进度 -->
+      <section class="card hidden" id="progressWrap">
+        <div class="card-head"><span class="step-no">4</span><h2>执行进度</h2></div>
+        <div class="progress-track"><div class="progress-fill" id="barFill"></div></div>
+        <pre id="progressLog" class="progress-log"></pre>
+      </section>
+
+      <!-- 5 结果 -->
+      <section class="card hidden result-card" id="cardResult">
+        <div class="card-head">
+          <span class="step-no">5</span>
+          <h2>反编译结果</h2>
+          <div class="result-stats" id="resultStats"></div>
+        </div>
+
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="src" role="tab">源码</button>
+          <button class="tab hidden" id="tabTrans" data-tab="trans" role="tab">翻译版</button>
+        </div>
+
+        <div class="code-wrap">
+          <div id="srcView" class="code-view" role="tabpanel"></div>
+          <div id="transView" class="code-view hidden" role="tabpanel"></div>
+        </div>
+
+        <div class="result-actions">
+          <button id="btnCopy" class="btn btn-ghost">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+            复制
+          </button>
+          <button id="btnDownload" class="btn btn-primary">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12 3v12M12 15l-4-4M12 15l4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            下载产物
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<footer class="footer">
+  <span id="footEngine">引擎层：Pyodide · 浏览器本地运行 · 待加载</span>
+</footer>
+
+<script src="js/format.js"></script>
+<script src="js/engines.js"></script>
+<script src="js/translate.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

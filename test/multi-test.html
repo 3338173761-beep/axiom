@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Axiom 多引擎浏览器实测</title>
+<style>
+body { background:#0b1020; color:#cbd5e1; font-family: Consolas, monospace; padding: 20px; }
+h1 { color:#67e8f9; font-size: 18px; }
+#log { white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+.ok { color:#34d399; } .err { color:#f87171; } .info { color:#94a3b8; }
+</style>
+</head>
+<body>
+<h1>Axiom 多引擎浏览器实测（自研 DEX / Java / APK / .NET / 二进制）</h1>
+<div id="log">启动中…</div>
+<script src="../js/engines.js"></script>
+<script>
+"use strict";
+const logEl = document.getElementById("log");
+function log(cls, msg) {
+  const div = document.createElement("div");
+  div.className = cls;
+  div.textContent = msg;
+  logEl.appendChild(div);
+  console.log("[" + cls + "]", msg);
+}
+async function report(tag, ok, info) {
+  try {
+    await fetch("http://127.0.0.1:8788/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tag, ok, info, ts: Date.now() })
+    });
+  } catch (e) {}
+}
+
+async function sampleFile(url, name, type) {
+  const r = await fetch(url);
+  const blob = await r.blob();
+  return new File([blob], name, { type: type || "application/octet-stream" });
+}
+
+async function runCase(tag, label, engineId, file) {
+  log("info", "== " + label + " 开始 ==");
+  try {
+    const eng = AxiomEngines.get(engineId);
+    const lines = [];
+    const result = await eng.decompile(file, (m) => { log("info", "  " + m); lines.push(m); });
+    const head = String(result).slice(0, 400);
+    log("ok", "✔ " + label + " 成功，输出 " + String(result).length + " 字符");
+    log("ok", "  预览: " + head.replace(/\n/g, "\n        "));
+    await report(tag, true, { len: String(result).length, head: head.slice(0, 300), engine: eng.label });
+  } catch (e) {
+    log("err", "✘ " + label + " 失败: " + e.message);
+    await report(tag, false, { err: e.message });
+  }
+}
+
+(async () => {
+  log("info", "Pyodide 加载中…");
+  try { await AxiomEngines.loadPyodideRuntime(); }
+  catch (e) { log("err", "Pyodide 加载失败: " + e.message); await report("pyodide", false, { err: e.message }); return; }
+  log("ok", "Pyodide 就绪");
+
+  // 1) DEX
+  const dexFile = await sampleFile("/test/samples/dex_out/classes.dex", "classes.dex");
+  await runCase("multi-dex", "DEX→Smali（自研 Dalvik）", "dex", dexFile);
+
+  // 2) Java class
+  const clsFile = await sampleFile("/test/samples/HelloAxiom.class", "HelloAxiom.class");
+  await runCase("multi-java-class", "Java .class（自研）", "java", clsFile);
+
+  // 3) Java jar
+  const jarFile = await sampleFile("/test/samples/HelloAxiom.jar", "HelloAxiom.jar");
+  await runCase("multi-java-jar", "Java .jar（自研）", "java", jarFile);
+
+  // 4) APK
+  const apkFile = await sampleFile("/test/samples/test_mini.apk", "test_mini.apk");
+  await runCase("multi-apk", "APK 解析（解包+DEX）", "apk", apkFile);
+
+  // 5) .NET dll
+  const dllFile = await sampleFile("/test/samples/axiomnet.dll", "axiomnet.dll");
+  await runCase("multi-dotnet", ".NET dll（dnfile+dncil）", "dotnet", dllFile);
+
+  // 6) 原生二进制 PE（自研 x86 解码器回退）
+  const peFile = await sampleFile("/test/samples/whoami.exe", "whoami.exe");
+  await runCase("multi-bin", "原生 PE（自研 x86 解码器）", "bin", peFile);
+
+  log("ok", "===== 全部测试完成 =====");
+  await report("multi-done", true, {});
+})();
+</script>
+</body>
+</html>

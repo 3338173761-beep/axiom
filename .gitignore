@@ -1,0 +1,21 @@
+# 敏感文件（绝不上传）
+.gh_token.tmp
+.git-credentials
+*.key
+*.pem
+
+# 调试/临时输出
+*.txt
+shots/
+samples/
+_debug/
+*.log
+memmy_*.json
+_chrome_*/
+test/_chrome_*/
+win_server_log*.txt
+smoke_out*.txt
+
+# 系统
+Thumbs.db
+.DS_Store

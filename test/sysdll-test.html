@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>Axiom 系统 DLL 实测</title>
+<style>
+body { background:#0b1020; color:#cbd5e1; font-family: Consolas, monospace; padding: 20px; }
+#log { white-space: pre-wrap; font-size: 13px; line-height: 1.5; }
+.ok { color:#34d399; } .err { color:#f87171; } .info { color:#94a3b8; }
+</style>
+</head>
+<body>
+<h1>Axiom 真实系统 DLL 实测（msvcp140.dll · VC++ 运行库）</h1>
+<div id="log">启动中…</div>
+<script src="../js/engines.js"></script>
+<script>
+"use strict";
+const logEl = document.getElementById("log");
+function log(cls, msg) {
+  const div = document.createElement("div");
+  div.className = cls;
+  div.textContent = msg;
+  logEl.appendChild(div);
+  console.log("[" + cls + "]", msg);
+}
+async function report(tag, ok, info) {
+  try {
+    await fetch("http://127.0.0.1:8788/result", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tag, ok, info, ts: Date.now() })
+    });
+  } catch (e) {}
+}
+
+(async () => {
+  log("info", "Pyodide 加载中…");
+  try { await AxiomEngines.loadPyodideRuntime(); }
+  catch (e) { log("err", "Pyodide 加载失败: " + e.message); await report("sysdll-pyodide", false, { err: e.message }); return; }
+  log("ok", "Pyodide 就绪");
+
+  const r = await fetch("/test/samples/msvcp140.dll");
+  const blob = await r.blob();
+  const file = new File([blob], "msvcp140.dll", { type: "application/octet-stream" });
+  log("info", "样本已加载: " + (file.size / 1024).toFixed(0) + " KB");
+
+  try {
+    const eng = AxiomEngines.get("bin");
+    const result = await eng.decompile(file, (m) => log("info", "  " + m));
+    const s = String(result);
+    log("ok", "✔ 解析成功，输出 " + s.length + " 字符");
+    // 打印前 80 行 + 末尾摘要
+    const lines = s.split("\n");
+    for (const l of lines.slice(0, 60)) log("info", l);
+    if (lines.length > 60) log("info", "…（共 " + lines.length + " 行）");
+    await report("sysdll-bin", true, { len: s.length, lines: lines.length, head: s.slice(0, 300) });
+  } catch (e) {
+    log("err", "✘ 解析失败: " + e.message);
+    await report("sysdll-bin", false, { err: e.message });
+  }
+  await report("sysdll-done", true, {});
+})();
+</script>
+</body>
+</html>

@@ -1,2 +1,0 @@
-# Axiom
-Multi-format decompiler
