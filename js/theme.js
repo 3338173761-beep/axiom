@@ -36,6 +36,154 @@
     { t: 'sys',   text: '[ SYS ] degraded mode · UI 82% · 6.1GB',      ms: 38 }
   ];
 
+  /* ---------- 故障风暴：乱码雨 + 彩色 glitch 块 + 条带撕裂 + 噪点（错乱段主效果） ---------- */
+  var storm = {
+    cv: null, ctx: null, W: 0, H: 0, rafId: 0, t0: 0, dur: 0, palette: 'red',
+    CHARS: '01▓▒░█▄▀■◢◣◥◤┌┐└┘┤├┬┴┼╋═║╔╗╚╝ 異常覚醒崩壊周波数核心臨界AXIOMOVERCLOCK',
+    init: function () {
+      this.cv = $('glitchStorm');
+      if (!this.cv) return;
+      this.ctx = this.cv.getContext('2d');
+      var self = this;
+      window.addEventListener('resize', function () { if (self.rafId) self.resize(); });
+    },
+    resize: function () {
+      this.W = window.innerWidth; this.H = window.innerHeight;
+      this.cv.width = this.W; this.cv.height = this.H;
+      this.cv.style.width = this.W + 'px'; this.cv.style.height = this.H + 'px';
+    },
+    start: function (dur, palette) {
+      if (!this.ctx) return;
+      this.dur = dur || 600; this.palette = palette || 'red';
+      this.resize();
+      this.t0 = performance.now();
+      this.cv.style.opacity = '1';
+      var self = this;
+      this.rafId = requestAnimationFrame(function (t) { self.frame(t); });
+      document.body.classList.add('oc-shake');
+      var ov = $('cmdOverlay');
+      if (ov) ov.classList.add('glitching');
+      setTimeout(function () {
+        if (ov) ov.classList.remove('glitching');
+      }, dur);
+    },
+    frame: function (t) {
+      var el = t - this.t0;
+      if (el > this.dur) { this.stop(); return; }
+      var ctx = this.ctx, W = this.W, H = this.H;
+      ctx.fillStyle = 'rgba(2,3,8,0.22)';
+      ctx.fillRect(0, 0, W, H);
+      var c1, c2;
+      if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; }
+      else { c1 = '0,255,136'; c2 = '255,77,94'; }
+      var self = this;
+      // 1) 乱码字符风暴：多行随机字符，行间随机错位（条带撕裂感）
+      ctx.font = (14 + Math.random() * 22) + 'px "Share Tech Mono", monospace';
+      var rows = 18 + Math.floor(Math.random() * 12);
+      for (var i = 0; i < rows; i++) {
+        var y = Math.random() * H;
+        var x = Math.random() * 60 - 30;
+        var str = '';
+        var len = 8 + Math.floor(Math.random() * 30);
+        for (var j = 0; j < len; j++) str += this.CHARS[Math.floor(Math.random() * this.CHARS.length)];
+        var rgba = Math.random() < 0.5 ? c1 : c2;
+        ctx.fillStyle = 'rgba(' + rgba + ',' + (0.25 + Math.random() * 0.6) + ')';
+        ctx.fillText(str, x, y);
+      }
+      // 2) 彩色 glitch 块（红/青/绿小方块乱闪）
+      var blocks = 10 + Math.floor(Math.random() * 14);
+      for (var b = 0; b < blocks; b++) {
+        var bw = 4 + Math.random() * 60, bh = 2 + Math.random() * 16;
+        var bx = Math.random() * W, by = Math.random() * H;
+        var bc = Math.random() < 0.5 ? c1 : (Math.random() < 0.5 ? c2 : '0,255,136');
+        ctx.fillStyle = 'rgba(' + bc + ',' + (0.15 + Math.random() * 0.4) + ')';
+        ctx.fillRect(bx, by, bw, bh);
+      }
+      // 3) 白色扫描横线（偶尔）
+      if (Math.random() < 0.4) {
+        ctx.fillStyle = 'rgba(209,247,255,' + (0.3 + Math.random() * 0.5) + ')';
+        ctx.fillRect(0, Math.random() * H, W, 1 + Math.random() * 2);
+      }
+      // 4) 噪点像素
+      for (var p = 0; p < 220; p++) {
+        ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c2) + ',' + (0.2 + Math.random() * 0.5) + ')';
+        ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
+      }
+      // 5) 大号错误撕裂字（红调时）
+      if (this.palette === 'red' && Math.random() < 0.25) {
+        ctx.font = (26 + Math.random() * 40) + 'px Orbitron, "Share Tech Mono", monospace';
+        ctx.fillStyle = 'rgba(255,77,94,' + (0.3 + Math.random() * 0.4) + ')';
+        ctx.fillText('ERR', Math.random() * W * 0.8, 30 + Math.random() * H * 0.8);
+      }
+      this.rafId = requestAnimationFrame(function (tt) { self.frame(tt); });
+    },
+    stop: function () {
+      if (this.rafId) cancelAnimationFrame(this.rafId);
+      this.rafId = 0;
+      if (this.cv) this.cv.style.opacity = '0';
+      if (this.ctx) this.ctx.clearRect(0, 0, this.W, this.H);
+      document.body.classList.remove('oc-shake');
+    }
+  };
+
+  /* ---------- 第二形态英文化（进入替换，退出恢复；2077 艺术字由 CSS 类 oc-en 提供） ---------- */
+  var i18n = {
+    applied: false, saved: [], fmtHi: null, fmtHiOrig: '',
+    map: [
+      { sel: '.brand-sub', html: 'MULTI-FORMAT AUTO-DECOMPILER' },
+      { sel: '#runtimeText', html: 'PYTHON RUNTIME READY' },
+      { sel: '.hero-title', html: 'REDUCE COMPILED SCRIPTS<br><em>BACK TO SOURCE</em>' },
+      { sel: '.hero-sub', html: 'RPYC · RPA · PYC · APK · DEX · JAR — DROP IT IN · ENGINE RUNS IN YOUR BROWSER · FILES NEVER LEAVE' },
+      { sel: '.upload-card h2', html: 'UPLOAD FILE' },
+      { sel: '.dz-title', html: 'CLICK TO SELECT OR DRAG & DROP' },
+      { sel: '.dz-hint', html: 'SUPPORTED: RPYC / RPYMC / RPA / PYC / DEX / APK / JAR…' },
+      { sel: '.privacy-note', html: '100% LOCAL — FILES NEVER LEAVE THIS DEVICE' },
+      { sel: '.set-label[for="outputName"]', html: 'OUTPUT FILE NAME' },
+      { sel: '.set-label:not([for])', html: 'AI CONTEXT TRANSLATION' },
+      { sel: '.set-tip', html: 'DeepSeek · Context-aware · ZH ↔ EN' },
+      { sel: '#cardInfo h2', html: 'FORMAT DETECTION' },
+      { sel: '#cardActions h2', html: 'DECOMPILE & TRANSLATE' },
+      { sel: '#progressWrap h2', html: 'EXECUTION LOG' },
+      { sel: '#cardResult h2', html: 'DECOMPILED RESULT' },
+      { sel: '#btnDecompile .btn-label', html: 'DECOMPILE' },
+      { sel: '#btnTranslate .btn-label', html: 'TRANSLATE' },
+      { sel: '#btnReset .btn-label', html: 'RESET' },
+      { sel: '.tab[data-tab="src"]', html: 'SOURCE' },
+      { sel: '#tabTrans', html: 'TRANSLATED' },
+      { sel: '#btnCopy .btn-label', html: 'COPY' },
+      { sel: '#btnDownload .btn-label', html: 'DOWNLOAD' },
+      { sel: '#footEngine', html: 'ENGINE: PYODIDE · BROWSER-LOCAL · READY' }
+    ],
+    apply: function () {
+      if (this.applied) return;
+      this.applied = true; this.saved = [];
+      var self = this;
+      this.map.forEach(function (m) {
+        var el = document.querySelector(m.sel);
+        if (!el) return;
+        self.saved.push({ el: el, v: el.innerHTML });
+        el.innerHTML = m.html;
+        el.classList.add('oc-en');
+      });
+      var hi = document.querySelector('#fmtCloud .fmt-chip-hi');
+      if (hi) {
+        this.fmtHi = hi; this.fmtHiOrig = hi.textContent;
+        var n = parseInt((hi.textContent || '').replace(/[^\d]/g, ''), 10);
+        hi.textContent = (n || 620) + ' FORMATS DETECTED';
+        hi.classList.add('oc-en');
+      }
+      var bl = document.querySelector('#swapBtn .swap-btn__label');
+      if (bl) { this.saved.push({ el: bl, v: bl.textContent }); bl.textContent = 'RETURN TO BASE'; bl.classList.add('oc-en'); }
+    },
+    restore: function () {
+      if (!this.applied) return;
+      this.applied = false;
+      this.saved.forEach(function (s) { s.el.innerHTML = s.v; s.el.classList.remove('oc-en'); });
+      if (this.fmtHi) { this.fmtHi.textContent = this.fmtHiOrig; this.fmtHi.classList.remove('oc-en'); }
+      this.saved = []; this.fmtHi = null;
+    }
+  };
+
   /* ---------- 状态 ---------- */
   var state = {
     active: false,
@@ -242,13 +390,20 @@
       CMD_SCRIPT.forEach(function (line) {
         chain = chain.then(function () { return self.addLine(line, line.ms); });
         if (line.t === 'cmd' || line.t === 'err') chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 60); }); });
-        // 红色警示条闪出后 → 白屏乱闪 + glitch 错乱（后半段错乱开始）
+        // 红色警示条闪出后 → 故障风暴：白屏乱闪 + 乱码雨 + 撕裂错位 + 红/绿 glitch（后半段错乱）
         if (line.t === 'alert') {
           chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 680); }); });
-          chain = chain.then(function () { flash(90); return new Promise(function (r) { setTimeout(r, 80); }); });
-          chain = chain.then(function () { glitchBars(14, 380, true); flash(70, 'rgba(255,77,94,0.3)'); return new Promise(function (r) { setTimeout(r, 380); }); });
-          chain = chain.then(function () { flash(90, 'rgba(209,247,255,0.35)'); return new Promise(function (r) { setTimeout(r, 100); }); });
-          chain = chain.then(function () { glitchBars(10, 300, false); return new Promise(function (r) { setTimeout(r, 320); }); });
+          // 第一波：白屏 + 红色风暴（乱码/彩块/撕裂/抖动/切片 全开）
+          chain = chain.then(function () { flash(80); return new Promise(function (r) { setTimeout(r, 80); }); });
+          chain = chain.then(function () { storm.start(720, 'red'); return new Promise(function (r) { setTimeout(r, 720); }); });
+          // 红闪 + 白闪
+          chain = chain.then(function () { flash(120, 'rgba(255,77,94,0.45)'); return new Promise(function (r) { setTimeout(r, 130); }); });
+          chain = chain.then(function () { flash(90, 'rgba(209,247,255,0.4)'); return new Promise(function (r) { setTimeout(r, 100); }); });
+          // 第二波：青色风暴（第二轮撕裂）
+          chain = chain.then(function () { storm.start(600, 'green'); return new Promise(function (r) { setTimeout(r, 620); }); });
+          chain = chain.then(function () { flash(100, 'rgba(209,247,255,0.5)'); return new Promise(function (r) { setTimeout(r, 120); }); });
+          // 第三波：红色收敛（报错前最后一击）
+          chain = chain.then(function () { storm.start(420, 'red'); return new Promise(function (r) { setTimeout(r, 440); }); });
         }
       });
       // 回车模拟：扫描线 + 光标急闪
@@ -283,6 +438,8 @@
         var lbl = btn.querySelector('.swap-btn__label');
         if (lbl) lbl.textContent = '返回原版';
       }
+      // 第二形态全面英文化（2077 艺术字）
+      i18n.apply();
       var self = this;
       setTimeout(function () { self.overlay.style.visibility = 'hidden'; }, 320);
     },
@@ -340,6 +497,8 @@
   function exitNeon() {
     if (!state.active || state.entering || state.exiting) return;
     state.exiting = true;
+    // 先恢复中文（原版 UI）
+    i18n.restore();
     var btn = $('swapBtn');
     var overlay = $('cmdOverlay');
     btn.classList.remove('m-oc');
@@ -370,6 +529,7 @@
   function init() {
     probeMemory();
     rain.init();
+    storm.init();
     cmd.init();
     warn.init();
     var btn = $('swapBtn');
@@ -381,6 +541,7 @@
       var lbl = btn.querySelector('.swap-btn__label');
       if (lbl) lbl.textContent = '返回原版';
       btn.classList.add('m-oc');
+      i18n.apply();
     }
     btn.addEventListener('click', function () {
       if (state.entering || state.exiting) return;

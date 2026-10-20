@@ -653,7 +653,7 @@ body {
 .swap-btn.m-hide { opacity: 0 !important; pointer-events: none !important; transform: translateX(-50%) scale(.82); box-shadow: none !important; }
 /* 激活后常驻：更小更低调，hover 亮起 */
 .swap-btn.m-oc {
-  width: 108px; height: 32px; opacity: .3; font-size: 12.5px;
+  width: 150px; height: 34px; opacity: .3; font-size: 12.5px;
   box-shadow: 0 0 8px rgba(0,255,136,.1), inset 0 0 8px rgba(0,212,255,.04);
 }
 .swap-btn.m-oc:hover { opacity: 1; box-shadow: 0 0 20px rgba(0,255,136,.4); }
@@ -1066,4 +1066,96 @@ body {
   .oc-banner__hazard, .hud-read b::after, .warn-mask, .cmd-overlay.exiting .cmd-inner, .cmd-overlay.exiting {
     animation: none !important; transition: none !important;
   }
+}
+
+/* ============ 超频协议 v3：故障风暴 + 英文化艺术字 ============ */
+
+/* 风暴画布：全屏乱码/彩块/噪点，盖在 CMD 内容之上 */
+.glitch-storm {
+  position: fixed; inset: 0; z-index: 102;
+  width: 100%; height: 100%;
+  pointer-events: none; opacity: 0;
+  transition: opacity .08s linear;
+}
+
+/* 故障抖动（风暴期间 body 全局颤抖） */
+body.oc-shake { animation: ocShake .3s steps(3) infinite; }
+@keyframes ocShake {
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(-5px,4px); }
+  50%  { transform: translate(4px,-6px); }
+  75%  { transform: translate(-3px,-3px); }
+  100% { transform: translate(0,0); }
+}
+
+/* CMD 内容切片错位（风暴期间内容被撕成碎片抖动） */
+.cmd-overlay.glitching .cmd-inner {
+  animation: cmdSlice .28s steps(3) infinite;
+}
+@keyframes cmdSlice {
+  0%   { transform: translate(0,0) skewX(0deg) scale(1); filter: none; }
+  20%  { transform: translate(7px,-4px) skewX(2.5deg) scale(1.01); filter: invert(0.12); }
+  40%  { transform: translate(-11px,6px) skewX(-3.5deg) scale(1.02); filter: hue-rotate(18deg); }
+  60%  { transform: translate(6px,-2px) skewX(1.5deg) scale(0.99); filter: invert(0.2); }
+  80%  { transform: translate(-5px,5px) skewX(-1deg) scale(1.01); filter: hue-rotate(-14deg); }
+  100% { transform: translate(0,0) skewX(0deg) scale(1); filter: none; }
+}
+.cmd-overlay.glitching { animation: ovJitter .16s steps(2) infinite; }
+@keyframes ovJitter {
+  0% { transform: translate(0,0); }
+  50% { transform: translate(2px,-2px); }
+  100% { transform: translate(0,0); }
+}
+
+/* 红色报错行：更炸的闪入（风暴收敛后） */
+.cmd-overlay .cmd-err {
+  font-size: 16px; font-weight: 700;
+  letter-spacing: 1px;
+  animation: errStrike .5s steps(2) infinite, errFlash 1.4s steps(6) infinite;
+}
+@keyframes errStrike {
+  0% { transform: translate(0,0); }
+  50% { transform: translate(-3px,0); }
+  100% { transform: translate(0,0); }
+}
+@keyframes errFlash {
+  0%, 100% { opacity: 1; text-shadow: 0 0 12px rgba(255,77,94,.75); }
+  30% { opacity: .55; text-shadow: 0 0 26px rgba(255,77,94,1), 3px 0 rgba(0,212,255,.6); }
+  60% { opacity: 1; text-shadow: 0 0 12px rgba(255,77,94,.75); }
+  80% { opacity: .7; text-shadow: 0 0 30px rgba(255,77,94,1), -3px 0 rgba(255,255,255,.5); }
+}
+
+/* 英文化 2077 艺术字（第二形态全局） */
+[data-theme="overclock"] .oc-en {
+  font-family: "Orbitron", "Rajdhani", "Share Tech Mono", sans-serif;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+[data-theme="overclock"] .oc-en.hero-title { letter-spacing: .06em; }
+[data-theme="overclock"] .oc-en.brand-sub { letter-spacing: .2em; }
+[data-theme="overclock"] .oc-en.btn-label { letter-spacing: .1em; }
+[data-theme="overclock"] .swap-btn.m-oc .oc-en { letter-spacing: .05em; font-size: 12.5px; }
+
+/* 故障错位辉光（三色 RGB split，2077 招牌故障字） */
+[data-theme="overclock"] .oc-en.hero-title {
+  text-shadow:
+    2px 0 rgba(0,212,255,.5),
+    -2px 0 rgba(255,77,94,.4),
+    0 0 32px rgba(0,255,136,.45);
+  animation: artFlicker 3.2s steps(2) infinite;
+}
+[data-theme="overclock"] .oc-en:not(.hero-title) {
+  text-shadow:
+    1px 0 rgba(0,212,255,.35),
+    -1px 0 rgba(255,77,94,.3),
+    0 0 14px rgba(0,255,136,.25);
+}
+@keyframes artFlicker {
+  0%, 100% { opacity: 1; }
+  7% { opacity: .72; }
+  9% { opacity: 1; }
+  41% { opacity: .85; }
+  43% { opacity: 1; }
+  77% { opacity: .66; }
+  79% { opacity: 1; }
 }
