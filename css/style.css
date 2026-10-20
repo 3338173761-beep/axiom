@@ -341,12 +341,12 @@ body {
  * 赛博朋克双主题（原版默认 → 点击切换 → 炫酷转场）
  * ============================================================ */
 
-/* ---- 二进制矩阵雨画布（cyber 模式激活）---- */
+/* ---- 二进制矩阵雨画布（超频协议激活）---- */
 #cyberRain {
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
   opacity: 0; transition: opacity 0.9s ease;
 }
-:root[data-theme="cyber"] #cyberRain { opacity: 1; }
+:root[data-theme="overclock"] #cyberRain { opacity: 1; }
 
 /* ---- 顶栏右侧（引擎徽章 + 切换按钮）---- */
 .topbar-right { display: flex; align-items: center; gap: 10px; }
@@ -498,3 +498,406 @@ body {
 }
 :root[data-theme="cyber"] .btn-secondary:not(:disabled):hover { background: rgba(255, 46, 196, 0.24); }
 :root[data-theme="cyber"] .engine-badge { border-color: rgba(0, 255, 163, 0.25); }
+
+/* ============================================================
+ * Axiom 超频协议 · 第二形态（Overclock Protocol）
+ * 2077 视觉语言 → 黑蓝绿 · 照规范 2.1–2.8 实现
+ * ============================================================ */
+
+/* ---- 字体（本地自托管 woff2） ---- */
+@font-face { font-family: "Rajdhani"; font-weight: 400; font-display: swap; src: url("../fonts/rajdhani-400.woff2") format("woff2"); }
+@font-face { font-family: "Rajdhani"; font-weight: 500; font-display: swap; src: url("../fonts/rajdhani-500.woff2") format("woff2"); }
+@font-face { font-family: "Rajdhani"; font-weight: 600; font-display: swap; src: url("../fonts/rajdhani-600.woff2") format("woff2"); }
+@font-face { font-family: "Rajdhani"; font-weight: 700; font-display: swap; src: url("../fonts/rajdhani-700.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-weight: 500; font-display: swap; src: url("../fonts/orbitron-500.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-weight: 700; font-display: swap; src: url("../fonts/orbitron-700.woff2") format("woff2"); }
+@font-face { font-family: "Orbitron"; font-weight: 900; font-display: swap; src: url("../fonts/orbitron-900.woff2") format("woff2"); }
+@font-face { font-family: "Share Tech Mono"; font-weight: 400; font-display: swap; src: url("../fonts/sharetechmono-400.woff2") format("woff2"); }
+
+/* ---- 超频协议色板与令牌（2.1） ---- */
+:root[data-theme="overclock"] {
+  /* 背景分层 */
+  --cyber-bg:        #05070F;
+  --cyber-surface:   #0A0E17;
+  --cyber-surface-2: #0E1626;
+  --cyber-grid-line: #12243A;
+  /* 主霓虹：电光绿（动作/激活） */
+  --cyber-primary:     #00FF88;
+  --cyber-primary-dim: #00B85C;
+  --cyber-green-accent:#39FF6A;
+  /* 蓝色家族（状态/数据） */
+  --cyber-blue:  #0080FF;
+  --cyber-cyan:  #00D4FF;
+  --cyber-teal-deep: #0E5A6E;
+  /* 文字 */
+  --cyber-text:      #D1F7FF;
+  --cyber-text-dim:  #7F9BB3;
+  --cyber-text-faint:#4A6178;
+  /* 边框/装饰 */
+  --cyber-border:  #1A3A52;
+  --cyber-bracket: #00FF88;
+  /* 辉光 */
+  --cyber-glow-primary: 0 0 12px rgba(0, 255, 136, .45);
+  --cyber-glow-cyan:    0 0 10px rgba(0, 212, 255, .35);
+  /* 唯一危险色（面积 <5%） */
+  --cyber-danger:  #FF4D5E;
+  /* 缓动令牌 */
+  --ease-mech:    cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-in-fast: cubic-bezier(0.5, 0, 0.9, 0.4);
+  --ease-spring:  cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-decel:   cubic-bezier(0.1, 0.8, 0.2, 1);
+}
+
+/* ---- 超频协议组件 ---- */
+
+/* C1 底部切换按钮：180×44 fixed 底部居中，合页盖板/齿轮盘/标签 */
+.swap-btn {
+  position: fixed; left: 50%; bottom: 18px; z-index: 60;
+  transform: translateX(-50%);
+  width: 180px; height: 44px;
+  background: linear-gradient(160deg, #0A0E17, #07121C);
+  border: 1px solid rgba(0, 255, 136, .5);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  box-shadow: 0 0 18px rgba(0, 255, 136, .25), inset 0 0 14px rgba(0, 212, 255, .08);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  font-family: "Rajdhani", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  color: #B8FFE0; font-size: 15px; font-weight: 700; letter-spacing: .08em;
+  touch-action: manipulation;
+  transition: box-shadow .25s var(--ease-mech);
+}
+.swap-btn:hover { box-shadow: 0 0 26px rgba(0, 255, 136, .45), inset 0 0 14px rgba(0, 212, 255, .12); }
+.swap-btn:active { transform: translateX(-50%) scale(.96); }
+.swap-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--cyber-cyan), 0 0 26px rgba(0, 255, 136, .45); }
+/* 齿轮盘：conic 刻度，26px */
+.swap-btn__disc {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: conic-gradient(rgba(0,255,136,.9) 0 8deg, transparent 8deg 45deg, rgba(0,255,136,.9) 45deg 53deg, transparent 53deg 90deg, rgba(0,212,255,.8) 90deg 98deg, transparent 98deg 135deg, rgba(0,255,136,.9) 135deg 143deg, transparent 143deg 180deg, rgba(0,212,255,.8) 180deg 188deg, transparent 188deg 225deg, rgba(0,255,136,.9) 225deg 233deg, transparent 233deg 270deg, rgba(0,212,255,.8) 270deg 278deg, transparent 278deg 315deg, rgba(0,255,136,.9) 315deg 323deg, transparent 323deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 32%, #000 34%);
+  mask: radial-gradient(circle, transparent 32%, #000 34%);
+  flex: none;
+}
+/* 机械展开动画状态类（theme.js 触发） */
+.swap-btn.m-down  { transform: translateX(-50%) scale(.96); box-shadow: inset 0 3px 8px rgba(0,0,0,.5); }
+.swap-btn.m-open  { animation: swapOpen .78s var(--ease-mech) forwards; }
+.swap-btn.m-open .swap-btn__disc { animation: discSpin .36s steps(7) forwards; }
+.swap-btn.m-open .swap-btn__shell::before { animation: hatchL .27s var(--ease-mech) forwards; }
+.swap-btn.m-open .swap-btn__shell::after  { animation: hatchR .27s var(--ease-mech) forwards; }
+.swap-btn.m-out   { animation: swapOut .06s var(--ease-mech) forwards; }
+/* 激活后常驻形态：返回原版入口（低调不挡视线，hover 亮起） */
+.swap-btn.m-oc {
+  opacity: .38;
+  box-shadow: 0 0 10px rgba(0, 255, 136, .14), inset 0 0 10px rgba(0, 212, 255, .05);
+  transition: opacity .25s var(--ease-mech), box-shadow .25s var(--ease-mech);
+}
+.swap-btn.m-oc:hover { opacity: 1; box-shadow: 0 0 20px rgba(0, 255, 136, .4); }
+@keyframes swapOpen { 0% { transform: translateX(-50%) scale(.96); } 100% { transform: translateX(-50%) scale(1); } }
+@keyframes discSpin { to { transform: rotate(140deg); } }
+@keyframes hatchL { 0% { clip-path: inset(0 50% 0 0); } 100% { clip-path: inset(0 50% 0 0); transform: rotate(-6deg); opacity: 0; } }
+@keyframes hatchR { 0% { clip-path: inset(0 0 0 50%); } 100% { clip-path: inset(0 0 0 50%); transform: rotate(6deg); opacity: 0; } }
+@keyframes swapOut { to { transform: translateX(-50%) scale(.85); opacity: 0; } }
+.swap-btn__shell::before, .swap-btn__shell::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 50%;
+  background: linear-gradient(160deg, #0E1626, #07121C);
+  transition: opacity .25s;
+}
+.swap-btn__shell::before { left: 0; clip-path: inset(0 50% 0 0); }
+.swap-btn__shell::after  { right: 0; clip-path: inset(0 0 0 50%); }
+
+/* C5 常驻扫描线 */
+.scanlines {
+  position: fixed; inset: 0; z-index: 90; pointer-events: none; opacity: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.25) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay;
+  transition: opacity .6s ease;
+}
+:root[data-theme="overclock"] .scanlines { opacity: .06; }
+
+/* C7 CMD 引导转场覆盖层 */
+.cmd-overlay {
+  position: fixed; inset: 0; z-index: 80; pointer-events: none;
+  background: var(--cyber-bg);
+  opacity: 0; visibility: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.cmd-overlay.on { opacity: 1; visibility: visible; pointer-events: auto; }
+.cmd-inner {
+  max-width: 760px; width: 92%; padding: 28px;
+  font-family: "Share Tech Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 15px; line-height: 1.9; color: var(--cyber-text);
+  min-height: 340px; position: relative;
+}
+.cmd-title {
+  font-family: "Orbitron", sans-serif; font-size: 16px; font-weight: 700;
+  letter-spacing: .14em; color: transparent;
+  background: linear-gradient(90deg, #0080FF, #00D4FF, #00FF88);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  animation: gradFlow 3s linear infinite;
+}
+@keyframes gradFlow { to { background-position: -200% 0; } }
+.cmd-copy { font-size: 12px; color: var(--cyber-text-dim); }
+.cmd-line { white-space: pre-wrap; word-break: break-all; opacity: 0; }
+.cmd-line.typed { opacity: 1; }
+.cmd-line .cmd-grad {
+  color: transparent;
+  background: linear-gradient(90deg, #0080FF, #00D4FF, #00FF88);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  animation: gradFlow 3s linear infinite;
+}
+.cmd-out { color: var(--cyber-green-accent); opacity: 0; }
+.cmd-out.shown { opacity: 1; }
+.cmd-caret {
+  display: inline-block; width: 8px; height: 17px;
+  background: var(--cyber-text);
+  animation: caretBlink 1.3s steps(1) infinite;
+  vertical-align: bottom;
+}
+.cmd-caret.fast { animation-duration: .4s; }
+@keyframes caretBlink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+/* 回车模拟扫描亮线（T3） */
+.cmd-scanline {
+  position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 82;
+  background: rgba(0, 255, 136, .7); pointer-events: none;
+  animation: cmdScan .2s linear forwards;
+}
+@keyframes cmdScan { to { transform: translateY(100vh); } }
+.cmd-particles { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* 光晕 + 粒子段（T5/T6） */
+.cmd-overlay.glow .cmd-inner::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 560px; height: 560px; border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.25);
+  background: radial-gradient(circle, rgba(0,128,255,.55), rgba(0,212,255,.4) 40%, rgba(0,255,136,.35) 70%, transparent 78%);
+  opacity: 0; pointer-events: none;
+  animation: haloExpand .5s var(--ease-decel) forwards;
+}
+@keyframes haloExpand { to { transform: translate(-50%, -50%) scale(1.15); opacity: 1; } }
+
+/* C8 第二形态标题 */
+:root[data-theme="overclock"] .hero-title em {
+  background: linear-gradient(90deg, #0080FF, #00D4FF, #00FF88);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradFlow 3s linear infinite;
+  filter: drop-shadow(0 0 14px rgba(0, 255, 136, .35));
+}
+:root[data-theme="overclock"] .brand-name {
+  font-family: "Orbitron", "HarmonyOS Sans SC", sans-serif;
+  letter-spacing: .1em; color: var(--cyber-text);
+  text-shadow: 0 0 14px rgba(0, 255, 136, .45);
+}
+
+/* C2 霓虹按钮（第二形态内全部按钮通用，2.6 状态表） */
+:root[data-theme="overclock"] .btn {
+  border-radius: 2px; font-family: "Rajdhani", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+  letter-spacing: .06em;
+  transition: transform .08s var(--ease-in-fast), box-shadow .16s var(--ease-mech), background .16s, color .16s;
+}
+:root[data-theme="overclock"] .btn-primary {
+  background: var(--cyber-primary); color: #04140B;
+  border: 1px solid var(--cyber-primary);
+  box-shadow: 0 0 6px rgba(0,255,136,.12), 0 0 16px rgba(0,255,136,.4);
+}
+:root[data-theme="overclock"] .btn-primary:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px rgba(0,255,136,.45), 0 0 28px rgba(0,128,255,.18);
+}
+:root[data-theme="overclock"] .btn-primary:not(:disabled):active {
+  transform: translateY(1px) scale(.96);
+  background: #00CC6A;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,.4), 0 0 10px rgba(0,255,136,.3);
+}
+:root[data-theme="overclock"] .btn-secondary {
+  background: rgba(0,255,136,.06); color: #B8FFE0;
+  border: 1px solid rgba(0,255,136,.35);
+  box-shadow: 0 0 6px rgba(0,255,136,.12), inset 0 0 8px rgba(0,255,136,.05);
+}
+:root[data-theme="overclock"] .btn-secondary:not(:disabled):hover {
+  transform: translateY(-1px); color: #fff;
+  border-color: var(--cyber-primary);
+  box-shadow: 0 0 12px rgba(0,255,136,.45), 0 0 28px rgba(0,128,255,.18);
+}
+:root[data-theme="overclock"] .btn-secondary:not(:disabled):active {
+  transform: translateY(1px) scale(.96);
+  box-shadow: inset 0 2px 10px rgba(0,0,0,.65), inset 0 0 12px rgba(0,255,136,.18), 0 0 10px rgba(0,255,136,.3);
+}
+:root[data-theme="overclock"] .btn-ghost {
+  background: rgba(0,255,136,.04); color: var(--cyber-text-dim);
+  border: 1px solid var(--cyber-border);
+}
+:root[data-theme="overclock"] .btn-ghost:not(:disabled):hover { color: var(--cyber-text); border-color: rgba(0,255,136,.4); }
+:root[data-theme="overclock"] .btn:disabled { box-shadow: none; filter: saturate(.3); }
+:root[data-theme="overclock"] .btn:focus-visible {
+  outline: none; box-shadow: 0 0 12px rgba(0,255,136,.45), 0 0 28px rgba(0,128,255,.18), 0 0 0 2px var(--cyber-cyan);
+}
+
+/* C3 面板切角 + L 角标 */
+:root[data-theme="overclock"] .card {
+  border-radius: 0;
+  border-color: rgba(0,255,136,.22);
+  background: linear-gradient(160deg, rgba(10,14,23,.92), rgba(7,18,28,.88));
+  box-shadow: 0 0 24px rgba(0,255,136,.07), 0 18px 48px rgba(0,0,0,.6);
+  position: relative;
+}
+:root[data-theme="overclock"] .card::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, var(--cyber-bracket) 0 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(180deg, var(--cyber-bracket) 0 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(90deg, var(--cyber-bracket) 0 1px, transparent 1px) 100% 100% / 14px 14px,
+    linear-gradient(180deg, var(--cyber-bracket) 0 1px, transparent 1px) 100% 100% / 14px 14px;
+  background-repeat: no-repeat;
+  opacity: .5;
+}
+:root[data-theme="overclock"] .step-no {
+  background: var(--cyber-primary); color: #04140B;
+  box-shadow: 0 0 16px rgba(0, 255, 136, .5);
+  border-radius: 0;
+}
+:root[data-theme="overclock"] .dropzone {
+  border-radius: 0; border-color: rgba(0,255,136,.4);
+  background: rgba(0,255,136,.02);
+}
+:root[data-theme="overclock"] .dropzone:hover { border-color: var(--cyber-primary); background: rgba(0,255,136,.06); box-shadow: 0 0 34px rgba(0,255,136,.25); }
+:root[data-theme="overclock"] .dropzone.dragover { border-color: var(--cyber-primary); background: rgba(0,255,136,.1); box-shadow: 0 0 40px rgba(0,255,136,.35); }
+:root[data-theme="overclock"] .code-wrap {
+  border-radius: 0; border-color: rgba(0,255,136,.2);
+  background: rgba(4, 10, 16, .92);
+  font-family: "Share Tech Mono", "Cascadia Code", Consolas, monospace;
+}
+:root[data-theme="overclock"] .progress-fill { background: linear-gradient(90deg, var(--cyber-primary), var(--cyber-cyan)); border-radius: 0; }
+:root[data-theme="overclock"] .progress-track { border-radius: 0; background: rgba(0,255,136,.08); }
+:root[data-theme="overclock"] .progress-log { border-radius: 0; border-color: rgba(0,255,136,.18); color: var(--cyber-text-dim); font-family: "Share Tech Mono", Consolas, monospace; }
+:root[data-theme="overclock"] .text-input, :root[data-theme="overclock"] .select-input { border-radius: 0; }
+:root[data-theme="overclock"] .text-input:focus { border-color: var(--cyber-primary); box-shadow: 0 0 0 3px rgba(0,255,136,.15); }
+:root[data-theme="overclock"] .tab.active { color: var(--cyber-primary); border-bottom-color: var(--cyber-primary); }
+:root[data-theme="overclock"] .fmt-chip { border-radius: 0; border-color: rgba(0,255,136,.25); color: var(--cyber-text-dim); }
+:root[data-theme="overclock"] .fmt-chip:hover { border-color: rgba(0,212,255,.6); color: var(--cyber-text); }
+:root[data-theme="overclock"] .engine-badge { border-radius: 0; border-color: rgba(0,255,136,.25); }
+:root[data-theme="overclock"] .file-item { border-radius: 0; }
+:root[data-theme="overclock"] .topbar {
+  background: rgba(5, 7, 15, .82);
+  border-bottom: 1px solid rgba(0,255,136,.25);
+}
+:root[data-theme="overclock"] .bg-glow {
+  background:
+    radial-gradient(700px 500px at 12% 0%, rgba(0,255,136,.08), transparent 70%),
+    radial-gradient(800px 600px at 88% 12%, rgba(0,128,255,.1), transparent 70%),
+    radial-gradient(900px 600px at 50% 100%, rgba(0,212,255,.05), transparent 70%);
+}
+:root[data-theme="overclock"] .bg-grid { opacity: .5; }
+:root[data-theme="overclock"] .switch input:checked + .switch-slider { background: linear-gradient(90deg, var(--cyber-primary), var(--cyber-blue)); border-radius: 0; }
+:root[data-theme="overclock"] .tok-kw { color: #39FF6A; }
+:root[data-theme="overclock"] .tok-str { color: #7DE8FF; }
+:root[data-theme="overclock"] .tok-str2 { color: #B8FFE0; }
+:root[data-theme="overclock"] .tok-label { color: #00FF88; }
+:root[data-theme="overclock"] .tok-cmt { color: #4A6178; }
+:root[data-theme="overclock"] .tok-num { color: #FFD166; }
+
+/* C9 警示纹（内存警告等） */
+.warn-strip {
+  height: 2px;
+  background: linear-gradient(90deg, var(--cyber-primary, #00FF88), var(--cyber-cyan, #00D4FF));
+}
+
+/* ---- 低内存警告弹窗（2.7.3） ---- */
+.warn-mask {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(2, 6, 10, .72);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  animation: warnIn .18s var(--ease-decel) both;
+  padding: 18px;
+}
+.warn-mask[hidden] { display: none; }
+@keyframes warnIn { from { opacity: 0; } }
+.warn-panel {
+  position: relative; max-width: 420px; width: 100%;
+  background: linear-gradient(160deg, #07121C 0%, #04100C 100%);
+  border: 1px solid rgba(0,255,136,.55);
+  box-shadow: 0 0 24px rgba(0,255,136,.25), inset 0 0 18px rgba(0,212,255,.08);
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  padding: 22px 22px 18px;
+}
+.warn-head { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.warn-icon { color: var(--cyber-danger); flex: none; }
+.warn-head h3 {
+  font-family: "Share Tech Mono", "Cascadia Code", monospace;
+  color: var(--cyber-danger); font-size: 16px; letter-spacing: 2px; font-weight: 600;
+}
+.warn-body { font-size: 13.5px; line-height: 1.7; color: #B8E6D4; }
+.warn-sub { margin-top: 8px; font-size: 12px; color: #6F9C8C; }
+.warn-actions { display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end; }
+.warn-btn { min-width: 108px; min-height: 44px; justify-content: center; border-radius: 0; }
+.warn-btn-ok {
+  background: var(--cyber-primary); color: #01140B;
+  border: 1px solid var(--cyber-primary); font-weight: 700;
+}
+.warn-btn-ok:hover { box-shadow: 0 0 14px rgba(0,255,136,.6); }
+.warn-btn-cancel {
+  background: transparent; color: #7DE8FF;
+  border: 1px solid rgba(0,212,255,.5); font-weight: 600;
+}
+.warn-btn-cancel:hover { box-shadow: 0 0 12px rgba(0,212,255,.4); }
+
+/* ---- 退场（X1–X5，切回原版） ---- */
+.cmd-overlay.exiting .cmd-inner { animation: scrollUp .35s var(--ease-in-fast) forwards; }
+@keyframes scrollUp { to { transform: translateY(-120px); opacity: 0; filter: blur(3px); } }
+.cmd-overlay.exiting { animation: coverDown .2s var(--ease-mech) forwards; }
+@keyframes coverDown { from { opacity: 1; } to { opacity: 1; } }
+:root[data-theme="overclock"] .panel-exit { animation: panelOut .2s var(--ease-in-fast) both; }
+@keyframes panelOut { to { opacity: 0; transform: translateY(-14px); filter: blur(1px); } }
+
+/* ---- 第二形态级联入场（T7） ---- */
+:root[data-theme="overclock"] .card, :root[data-theme="overclock"] .hero, :root[data-theme="overclock"] .footer {
+  animation: cascadeIn .48s var(--ease-decel) both;
+}
+:root[data-theme="overclock"] .hero { animation-delay: 0ms; }
+:root[data-theme="overclock"] .upload-card { animation-delay: 80ms; }
+:root[data-theme="overclock"] #cardInfo { animation-delay: 160ms; }
+:root[data-theme="overclock"] #cardActions { animation-delay: 240ms; }
+:root[data-theme="overclock"] #progressWrap { animation-delay: 320ms; }
+:root[data-theme="overclock"] .result-card { animation-delay: 400ms; }
+:root[data-theme="overclock"] .footer { animation-delay: 480ms; }
+@keyframes cascadeIn { from { opacity: 0; transform: translateY(18px); } }
+
+/* 矩阵雨 canvas 定位（合并，防重复声明） */
+#cyberRain { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+:root[data-theme="overclock"] body { background: var(--cyber-bg); position: relative; }
+:root[data-theme="overclock"] #cyberRain { z-index: 0; }
+:root[data-theme="overclock"] .bg-glow, :root[data-theme="overclock"] .bg-grid,
+:root[data-theme="overclock"] .topbar, :root[data-theme="overclock"] main, :root[data-theme="overclock"] .footer {
+  position: relative; z-index: 1;
+}
+
+/* CMD 回车扫描线（T3） */
+.cmd-scanline {
+  position: relative; height: 2px; margin: 6px 0 2px;
+  background: linear-gradient(90deg, transparent, #00D4FF 30%, #00FF88 70%, transparent);
+  box-shadow: 0 0 12px rgba(0, 255, 136, .8);
+  transform: scaleX(0); transform-origin: left center;
+  animation: scanSweep .5s var(--ease-decel) forwards;
+}
+@keyframes scanSweep { to { transform: scaleX(1); } }
+
+/* ---- 手机端降辉光（2.8.7） ---- */
+@media (max-width: 480px) {
+  :root[data-theme="overclock"] .card { box-shadow: 0 0 12px rgba(0,255,136,.05); }
+  :root[data-theme="overclock"] .scanlines { opacity: .04; }
+  .cmd-inner { font-size: 13.5px; }
+  .swap-btn { width: 152px; }
+}
+
+/* ---- 减少动态效果偏好（2.8.3） ---- */
+@media (prefers-reduced-motion: reduce) {
+  .swap-btn.m-open, .swap-btn.m-open .swap-btn__disc, .swap-btn.m-open .swap-btn__shell::before, .swap-btn.m-open .swap-btn__shell::after,
+  .cmd-overlay.glow .cmd-inner::after, .cmd-caret, .cmd-title, .cmd-line .cmd-grad,
+  :root[data-theme="overclock"] .hero-title em,
+  :root[data-theme="overclock"] .card, :root[data-theme="overclock"] .hero, :root[data-theme="overclock"] .footer,
+  .warn-mask, .cmd-overlay.exiting .cmd-inner, .cmd-overlay.exiting {
+    animation: none !important; transition: none !important;
+  }
+}

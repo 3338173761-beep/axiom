@@ -12,11 +12,34 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
-<!-- 赛博模式：二进制矩阵雨背景（仅在 cyber 主题激活） -->
+<!-- 超频协议：二进制矩阵雨背景（仅第二形态激活） -->
 <canvas id="cyberRain" aria-hidden="true"></canvas>
-<!-- 主题切换转场动画层 -->
-<div id="themeFX" class="theme-fx" aria-hidden="true">
-  <div class="fx-boot" id="fxBoot"></div>
+<!-- 常驻扫描线（第二形态） -->
+<div class="scanlines" id="scanlines" aria-hidden="true"></div>
+<!-- CMD 引导转场覆盖层 -->
+<div id="cmdOverlay" class="cmd-overlay" aria-hidden="true">
+  <div class="cmd-inner">
+    <div id="cmdLines" class="cmd-lines"></div>
+    <span id="cmdCaret" class="cmd-caret" aria-hidden="true"></span>
+  </div>
+  <canvas id="cmdParticles" class="cmd-particles" aria-hidden="true"></canvas>
+</div>
+
+<!-- 低内存警告弹窗（超频协议专用） -->
+<div id="memWarn" class="warn-mask" role="alertdialog" aria-modal="true" aria-labelledby="warnTitle" aria-describedby="warnBody" hidden>
+  <div class="warn-panel">
+    <div class="warn-strip"></div>
+    <div class="warn-head">
+      <svg class="warn-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 3 1 21h22L12 3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="18" r="1.2" fill="currentColor"/></svg>
+      <h3 id="warnTitle">内存不足警告</h3>
+    </div>
+    <p id="warnBody" class="warn-body">检测到设备内存不足 8 GB。开启「超频协议」会运行 Canvas 矩阵雨与霓虹动效，可能导致页面卡顿、风扇狂转或手机发烫，建议保持原版界面。</p>
+    <p class="warn-sub">你仍可以手动开启，系统会自动启用性能降级（限帧、降低密度）。</p>
+    <div class="warn-actions">
+      <button id="warnCancel" class="btn warn-btn warn-btn-cancel" type="button">取消</button>
+      <button id="warnOk" class="btn warn-btn warn-btn-ok" type="button">仍然开启</button>
+    </div>
+  </div>
 </div>
 
 <!-- 顶栏 -->
@@ -37,15 +60,9 @@
         <span class="brand-sub">多格式自动反编译器</span>
       </div>
     </div>
-    <div class="topbar-right">
-      <div class="engine-badge" id="engineBadge">
-        <span class="dot" id="runtimeDot"></span>
-        <span id="runtimeText">引擎未加载</span>
-      </div>
-      <button id="btnTheme" class="btn-theme" type="button" aria-label="切换赛博主题">
-        <svg class="btn-theme-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none"/></svg>
-        <span class="btn-theme-txt">赛博模式</span>
-      </button>
+    <div class="engine-badge" id="engineBadge">
+      <span class="dot" id="runtimeDot"></span>
+      <span id="runtimeText">引擎未加载</span>
     </div>
   </div>
 </header>
@@ -189,9 +206,11 @@
   <span id="footEngine">引擎层：Pyodide · 浏览器本地运行 · 待加载</span>
 </footer>
 
-<!-- 右下角悬浮主题切换 -->
-<button id="btnThemeFloat" class="btn-theme-float" type="button" aria-label="切换赛博主题">
-  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none"/></svg>
+<!-- 底部切换按钮：超频协议（机械展开） -->
+<button id="swapBtn" class="swap-btn" type="button" aria-haspopup="dialog">
+  <span class="swap-btn__shell"></span>
+  <span class="swap-btn__disc" aria-hidden="true"></span>
+  <span class="swap-btn__label">超频协议</span>
 </button>
 
 <script src="js/format-data.js"></script>
