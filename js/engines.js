@@ -720,7 +720,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     id: "doc",
     label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本，浏览器内）",
     canTranslate: true,
-    formats: ["docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
+    formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
       "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
       "epub", "rtf"],
     decompile: docDecode,

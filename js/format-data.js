@@ -1,10 +1,10 @@
 // Axiom 全格式识别表 —— 自动生成（勿手改，来源：全格式调研 627 条评估清单）
 // 生成时间 2026-10-20；列：扩展名|格式名称|类别|可行性分级|优先级|实现路径|说明|来源URL
 window.AXIOM_FORMAT_TABLE = {
-  "doc": {label:"Microsoft Word Document", cat:"文档", lvl:"仅识别", pri:"P1", path:"自研magic/struct(OLE复合文件头识别,WordDocument流正文未解析)", desc:"Word 97-2003 二进制文字文档，含文本排版", src:"https://www.fileinfo.com/extension/doc"},
+  "doc": {label:"Microsoft Word Document", cat:"文档", lvl:"解析/解包", pri:"P1", path:"自研OLE文本提取(UTF-16LE启发式扫描WordDocument流正文)", desc:"Word 97-2003 二进制文字文档，含文本排版", src:"https://www.fileinfo.com/extension/doc"},
   "docx": {label:"Microsoft Word Open XML Document", cat:"文档", lvl:"解析/解包", pri:"P1", path:"Pyodide标准库:zipfile+xml.etree(提取document.xml正文)", desc:"Word 默认 XML 文档，含完整文本内容", src:"https://www.fileinfo.com/extension/docx"},
   "docm": {label:"Word Open XML Macro-Enabled Document", cat:"文档", lvl:"解析/解包", pri:"P2", path:"Pyodide标准库:zipfile+xml.etree", desc:"含 VBA 宏的 Word XML 文档", src:"https://www.fileinfo.com/extension/docm"},
-  "dot": {label:"Word Document Template", cat:"文档", lvl:"仅识别", pri:"P2", path:"自研magic(OLE Word模板识别)", desc:"Word 97-2003 文档模板，含预设样式文本", src:"https://www.fileinfo.com/extension/dot"},
+  "dot": {label:"Word Document Template", cat:"文档", lvl:"解析/解包", pri:"P2", path:"自研OLE文本提取(UTF-16LE启发式扫描)", desc:"Word 97-2003 文档模板，含预设样式文本", src:"https://www.fileinfo.com/extension/dot"},
   "dotx": {label:"Word Open XML Document Template", cat:"文档", lvl:"解析/解包", pri:"P2", path:"Pyodide标准库:zipfile+xml.etree", desc:"Word XML 文档模板，无宏", src:"https://www.fileinfo.com/extension/dotx"},
   "dotm": {label:"Word Open XML Macro-Enabled Template", cat:"文档", lvl:"解析/解包", pri:"P2", path:"Pyodide标准库:zipfile+xml.etree", desc:"含宏的 Word XML 文档模板", src:"https://www.fileinfo.com/extension/dotm"},
   "rtf": {label:"Rich Text Format File", cat:"文档", lvl:"解析/解包", pri:"P1", path:"自研小解析器(剥离RTF控制词提取纯文本)", desc:"富文本格式，跨平台含格式化文本", src:"https://www.fileinfo.com/extension/rtf"},

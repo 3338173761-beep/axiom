@@ -201,10 +201,65 @@ def extract_rtf(data):
     return "".join(out).strip() or "RTF 中未提取到文本"
 
 
+def extract_ole(data):
+    """OLE 复合文档（Word 97-2003 .doc/.dot）通用文本提取。
+    全文件 UTF-16LE 启发式扫描（Word 正文流以 UTF-16 存中文）+ ASCII 兜底。"""
+    if data[:8] != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return "非 OLE 复合文档（缺 D0CF11E0 头）"
+    seen = set()
+    kept = []
+
+    def _push(buf):
+        s = "".join(buf).strip()
+        # 过滤 UTF-16 错位扫描产生的短噪音段（真实正文段通常较长）
+        if len(s) >= 6 and any(c.isalnum() for c in s) and s not in seen:
+            seen.add(s)
+            kept.append(s)
+
+    n = len(data)
+    # 两个字节偏移各扫一遍 UTF-16LE（正文可能从任意对齐开始）
+    for base in (0, 1):
+        i = base
+        buf = []
+        while i + 1 < n:
+            code = data[i] | (data[i + 1] << 8)
+            if (0x20 <= code < 0x7F) or (0x4E00 <= code <= 0x9FFF) or code in (0x0A, 0x0D, 0x09):
+                if code == 0x0D:
+                    buf.append("\n")
+                elif code == 0x0A:
+                    pass
+                elif code == 0x09:
+                    buf.append(" ")
+                else:
+                    buf.append(chr(code))
+            else:
+                _push(buf)
+                buf = []
+            i += 2
+        _push(buf)
+    if kept:
+        return "\n".join(kept[:500])
+    # 兜底：单字节 ASCII 可读段
+    i = 0
+    buf = []
+    while i < n:
+        c = data[i]
+        if 0x20 <= c < 0x7F:
+            buf.append(chr(c))
+        else:
+            _push(buf)
+            buf = []
+        i += 1
+    _push(buf)
+    return "\n".join(kept[:500]) if kept else "OLE 文档中未提取到文本（可能是加密或图片型文档）"
+
+
 def extract_document(data, name):
     lower = name.lower()
     if lower.endswith((".docx", ".docm", ".dotx", ".dotm")):
         return extract_docx(data)
+    if lower.endswith((".doc", ".dot")):
+        return extract_ole(data)  # OLE 复合文档（Word 97-2003）
     if lower.endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
         return extract_xlsx(data)
     if lower.endswith((".pptx", ".pptm", ".potx")):

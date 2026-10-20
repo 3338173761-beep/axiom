@@ -17,7 +17,8 @@ const AxiomFormats = (function () {
     zip: "archive", gz: "archive", bz2: "archive", xz: "archive", lzma: "archive",
     zst: "archive", br: "archive", lz4: "archive", uue: "archive",
     ar: "archive", cpio: "archive", deb: "archive",
-    // 文档引擎（zip 容器 → 文本提取 → 可翻译）
+    // 文档引擎（zip 容器 → 文本提取 → 可翻译；doc/dot OLE → 启发式文本提取）
+    doc: "doc", dot: "doc",
     docx: "doc", docm: "doc", dotx: "doc", dotm: "doc",
     xlsx: "doc", xlsm: "doc", xltx: "doc", xltm: "doc",
     pptx: "doc", pptm: "doc", potx: "doc",

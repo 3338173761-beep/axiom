@@ -19,7 +19,7 @@ pre{white-space:pre-wrap;background:#111a33;border:1px solid #2a3a6a;padding:12p
 function log(m){const d=document.createElement("div");d.textContent=m;document.getElementById("log").appendChild(d);}
 async function main(){
   const out = document.getElementById("out");
-  const samples = ["sample.docx","sample.xlsx","sample.pptx","sample.odt","sample.epub","sample.rtf"];
+  const samples = ["real.docx","sample.doc","sample.docx","sample.xlsx","sample.pptx","sample.odt","sample.epub","sample.rtf"];
   const log2 = [];
   let pass = 0, fail = 0;
   for (const name of samples) {
@@ -38,7 +38,7 @@ async function main(){
       log2.push(name + ": ERR " + e.message); fail++;
     }
   }
-  out.textContent = "=== 文档引擎 6 格式测试 ===\n" + log2.join("\n") +
+  out.textContent = "=== 文档引擎 8 格式测试（含 OLE .doc）===\n" + log2.join("\n") +
     "\n\n通过: " + pass + " / 失败: " + fail;
 }
 main();
