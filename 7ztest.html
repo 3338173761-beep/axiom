@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Axiom 7z 端到端测试</title>
+<style>
+body{font-family:monospace;background:#0b1020;color:#d7e0ff;padding:20px}
+pre{white-space:pre-wrap;background:#111a33;border:1px solid #2a3a6a;padding:12px;border-radius:8px}
+.ok{color:#4ade80}.fail{color:#f87171}
+</style>
+</head>
+<body>
+<h2>Axiom 7z 引擎端到端测试</h2>
+<div id="log"></div>
+<pre id="out">测试中…</pre>
+<script src="js/format-data.js"></script>
+<script src="js/format.js"></script>
+<script src="js/engines.js"></script>
+<script>
+function log(m){const d=document.createElement("div");d.textContent=m;document.getElementById("log").appendChild(d);}
+async function main(){
+  const out = document.getElementById("out");
+  // 1) 造 7z 样本（本地 python 预生成：test/_arctmp/real.7z）
+  const resp = await fetch("test/_arctmp/real.7z");
+  if (!resp.ok) { out.textContent = "样本加载失败 HTTP " + resp.status; return; }
+  const blob = await resp.blob();
+  const file = new File([blob], "real.7z");
+  log("样本已加载: real.7z (" + (blob.size/1024).toFixed(1) + " KB)");
+
+  // 2) 识别
+  try {
+    const fmt = await AxiomFormats.identify(file);
+    log("识别: " + JSON.stringify({id: fmt.id, engine: fmt.engine, label: fmt.label, ext: fmt.ext}));
+    if (fmt.id !== "7z" || fmt.engine !== "sevenz") { out.textContent = "识别失败！id=" + fmt.id; return; }
+    log("识别 OK");
+  } catch (e) { out.textContent = "识别异常: " + e.message; return; }
+
+  // 3) 解包（Pyodide 加载 + sevenz.py）
+  try {
+    const eng = AxiomEngines.get("sevenz");
+    if (!eng) { out.textContent = "sevenz 引擎未注册"; return; }
+    const result = await eng.decompile(file, (m) => { log("[引擎] " + m); });
+    out.textContent = result;
+  } catch (e) {
+    out.textContent = "解包失败: " + e.message + "\n" + (e.stack || "");
+  }
+}
+main();
+</script>
+</body>
+</html>

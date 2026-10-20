@@ -487,6 +487,107 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
   });
 
   // =========================================================
+  // RAR 引擎：node-unrar-js WASM（官方 UnRAR C++ 编译）
+  // 资源：test/unrar/（index.esm.js + js/unrar.js + js/unrar.wasm）
+  // =========================================================
+  let rarModulePromise = null;
+  async function loadRarModule() {
+    if (rarModulePromise) return rarModulePromise;
+    rarModulePromise = (async () => {
+      setStatus("busy", "正在加载 RAR 解压引擎（UnRAR WASM，约 200KB）…");
+      const base = REPO_BASE + "test/unrar/";
+      const wasmResp = await fetch(base + "js/unrar.wasm");
+      if (!wasmResp.ok) throw new Error("unrar.wasm 加载失败 (HTTP " + wasmResp.status + ")");
+      const wasmBinary = await wasmResp.arrayBuffer();
+      const mod = await import(base + "index.esm.js");
+      setStatus("ready", "RAR 引擎已就绪");
+      return { wasmBinary, mod };
+    })();
+    return rarModulePromise;
+  }
+
+  async function rarDecode(file, onLog) {
+    const { wasmBinary, mod } = await loadRarModule();
+    const n = file.size;
+    onLog && onLog("已读取 RAR（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("开始解包（官方 UnRAR WASM）…");
+    try {
+      const data = await file.arrayBuffer();
+      const extractor = await mod.createExtractorFromData({ wasmBinary, data });
+      const list = extractor.getFileList();
+      const headers = [...list.fileHeaders];
+      const lines = ["RAR 解包完成：共 " + headers.length + " 个文件（" + file.name + "）"];
+      for (const h of headers) {
+        lines.push("- " + (h.name || "(无名)") + " (" + h.unpSize + " B, " + (h.method || "") + ")" + (h.flags && h.flags.directory ? " [目录]" : ""));
+      }
+      const extracted = extractor.extract();
+      const files = [...extracted.files];
+      lines.push("", "===== 文本预览 =====");
+      let shown = 0;
+      for (const f of files) {
+        if (!f.extraction) continue;
+        if (f.fileHeader && f.fileHeader.flags && f.fileHeader.flags.directory) continue;
+        if (shown >= 8) break;
+        const name = f.fileHeader.name || "file";
+        // 仅预览可读文本
+        if (/\.(txt|md|json|xml|ini|log|cfg|conf|yaml|yml|srt|lrc|ass|ssa|py|js|ts|html|css|csv|po|pot|rpy|ust|vsqx|svp|ps1|sh|bat|cmd)(\.|$)/i.test(name)) {
+          const dec = new TextDecoder("utf-8");
+          const head = dec.decode(f.extraction.slice(0, 400)).replace(/\n/g, "\\n");
+          lines.push("\n--- " + name + " ---\n" + head);
+          shown++;
+        }
+      }
+      onLog && onLog("解包完成");
+      return lines.join("\n");
+    } catch (e) {
+      onLog && onLog("解包失败：" + e.message);
+      throw new Error("RAR 解包失败：" + e.message);
+    }
+  }
+
+  // =========================================================
+  // 7z 引擎：自研解析器（LZMA/LZMA2/Deflate/BZip2/Copy/ZSTD/BCJ 链式）
+  // =========================================================
+  async function sevenzDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载 7z 解压引擎…");
+    await loadEngineScripts(p, ["sevenz"]);
+    // lzma 模块（LZMA/LZMA2 必需）——Pyodide 里是独立包，需显式加载
+    try {
+      await p.loadPackage("lzma");
+      onLog && onLog("lzma 已就绪（支持 LZMA/LZMA2 方法）");
+    } catch (e) {
+      onLog && onLog("lzma 不可用（LZMA/LZMA2 压缩的 7z 将降级）：" + e.message);
+    }
+    // 可选：zstandard（Pyodide 官方包）——ZSTD 压缩的 7z 才需要
+    try {
+      await p.loadPackage("zstandard");
+      onLog && onLog("zstandard 已就绪（支持 ZSTD 方法）");
+    } catch (e) {
+      onLog && onLog("zstandard 不可用（ZSTD 压缩的 7z 将降级）：" + e.message);
+    }
+    const n = await writeInput(p, "/axiom/input.7z", file);
+    onLog && onLog("已写入 7z（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("开始解包（自研 7z 解析器）…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import sevenz
+with open("/axiom/input.7z", "rb") as f:
+    data = f.read()
+sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("解包完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解包失败：" + e.message);
+      throw new Error("7z 解包失败：" + e.message);
+    }
+  }
+
+  // =========================================================
   // text 引擎：纯文本/脚本/标记/歌词/字幕 → 浏览器直读 + AI 语境翻译
   // =========================================================
   async function textDecode(file, onLog) {
@@ -511,6 +612,22 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
     }
     return segs;
   }
+
+  register("rar", {
+    id: "rar",
+    label: "node-unrar-js（官方 UnRAR WASM，浏览器内）",
+    canTranslate: false,
+    formats: ["rar"],
+    decompile: rarDecode
+  });
+
+  register("sevenz", {
+    id: "sevenz",
+    label: "自研 7z 解析器（LZMA/LZMA2/Deflate/BZip2/Copy/ZSTD/BCJ，浏览器内）",
+    canTranslate: false,
+    formats: ["7z"],
+    decompile: sevenzDecode
+  });
 
   register("text", {
     id: "text",

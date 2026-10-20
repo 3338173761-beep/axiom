@@ -10,7 +10,8 @@ const AxiomFormats = (function () {
   // 已有完整引擎的格式（直接路由到现有引擎）
   const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
     dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
-    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", msi: "dotnet", sys: "dotnet" };
+    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", msi: "dotnet", sys: "dotnet",
+    "7z": "sevenz", rar: "rar" };
 
   // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
   // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
@@ -49,6 +50,8 @@ const AxiomFormats = (function () {
     dex: [[0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35]],               // "dex\n035"
     class: [[0xca, 0xfe, 0xba, 0xbe]],                               // Java class
     zip: [[0x50, 0x4b, 0x03, 0x04]],                                 // zip（apk/jar）
+    "7z": [[0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]],                     // 7z
+    rar: [[0x52, 0x61, 0x72, 0x21, 0x1a, 0x07]],                     // "Rar!\x1a\x07"（RAR4/RAR5）
     pe: [[0x4d, 0x5a]],                                             // MZ（exe/dll）
     elf: [[0x7f, 0x45, 0x4c, 0x46]],                                 // ELF
   };
@@ -144,7 +147,8 @@ const AxiomFormats = (function () {
     if (KNOWN_ENGINE[ext]) { id = ext; engine = KNOWN_ENGINE[ext]; canTranslate = false; }
     else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
     else { id = "generic"; engine = "none"; canTranslate = false; }
-    const lvlHint = lvl === "不可行/需重" ? "该格式在浏览器内暂不可行（需专用内核/解码库），完整能力将在 Windows/Android 端提供。" :
+    const lvlHint = KNOWN_ENGINE[ext] ? (lvl === "翻译" ? "浏览器内可直接阅读并 AI 翻译。" : "浏览器内支持解析/反编译。") :
+      lvl === "不可行/需重" ? "该格式在浏览器内暂不可行（需专用内核/解码库），完整能力将在 Windows/Android 端提供。" :
       lvl === "仅识别" ? "浏览器内仅识别元数据，完整解析将在 Windows/Android 端提供。" :
       lvl === "反编译" ? "浏览器内支持反编译。" :
       lvl === "解析/解包" ? "浏览器内支持结构解析/解包（逐步接入）。" :
@@ -173,6 +177,8 @@ const AxiomFormats = (function () {
     if (startsWith(head, MAGIC.dex[0])) id = "dex";
     else if (startsWith(head, MAGIC.class[0])) id = "jar";           // class 归入 jar 组
     else if (startsWith(head, MAGIC.rpa[0])) id = "rpa";
+    else if (startsWith(head, MAGIC["7z"][0])) id = "7z";
+    else if (startsWith(head, MAGIC.rar[0])) id = "rar";
     else if (startsWith(head, MAGIC.elf[0])) id = "binary";
     else if (startsWith(head, MAGIC.pe[0])) id = "binary";
     else if (startsWith(head, MAGIC.zip[0])) {
@@ -181,6 +187,9 @@ const AxiomFormats = (function () {
     }
     else if (MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
     else if (ext === "pyc" || ext === "pyo") id = "pyc";
+
+    // 魔数命中后：若扩展名在 627 表内，补 tableHit 供元数据使用
+    if (id && !tableHit && EXT_TABLE[ext]) tableHit = EXT_TABLE[ext];
 
     // 627 全格式表（扩展名）
     if (!id && EXT_TABLE[ext]) {
@@ -207,6 +216,8 @@ const AxiomFormats = (function () {
       else if (ext === "dex") id = "dex";
       else if (ext === "apk" || ext === "aab" || ext === "xapk") id = "apk";
       else if (ext === "jar" || ext === "class") id = "jar";
+      else if (ext === "7z") id = "7z";
+      else if (ext === "rar") id = "rar";
       else if (ext === "exe" || ext === "dll" || ext === "so" || ext === "elf" || ext === "o" || ext === "bin") id = "binary";
       else id = "unknown";
     }

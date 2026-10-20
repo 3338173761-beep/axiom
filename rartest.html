@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Axiom RAR 解包测试</title>
+<style>
+body{font-family:monospace;background:#0b1020;color:#d7e0ff;padding:20px}
+pre{white-space:pre-wrap;background:#111a33;border:1px solid #2a3a6a;padding:12px;border-radius:8px}
+</style>
+</head>
+<body>
+<h2>Axiom RAR 解包测试（node-unrar-js WASM）</h2>
+<div id="log"></div>
+<pre id="out">测试中…</pre>
+<script src="js/format-data.js"></script>
+<script src="js/format.js"></script>
+<script type="module">
+import { createExtractorFromData } from "./test/unrar/index.esm.js";
+function log(m){const d=document.createElement("div");d.textContent=m;document.getElementById("log").appendChild(d);}
+const out = document.getElementById("out");
+try {
+  // 1) 加载 RAR 样本 + WASM
+  const rarResp = await fetch("test/_arctmp/real.rar");
+  if (!rarResp.ok) { out.textContent = "样本加载失败 HTTP " + rarResp.status; throw 0; }
+  const wasmResp = await fetch("test/unrar/js/unrar.wasm");
+  const wasmBinary = await wasmResp.arrayBuffer();
+  const data = (await rarResp.arrayBuffer());
+  const blob = new Blob([data]);
+  const file = new File([blob], "real.rar");
+  log("样本 + WASM 已加载");
+
+  // 1.5) 识别
+  const fmt = await AxiomFormats.identify(file);
+  log("识别: " + JSON.stringify({id: fmt.id, engine: fmt.engine, label: fmt.label}));
+  if (fmt.id !== "rar" || fmt.engine !== "rar") { out.textContent = "识别失败！id=" + fmt.id; throw 0; }
+
+  // 2) 创建提取器
+  const extractor = await createExtractorFromData({ wasmBinary, data });
+
+  // 3) 文件清单
+  const list = extractor.getFileList();
+  const headers = [...list.fileHeaders];
+  log("文件数: " + headers.length);
+  const lines = ["=== RAR 文件清单 ==="];
+  for (const h of headers) lines.push("- " + h.name + " (" + h.unpSize + " B, " + h.method + ")");
+
+  // 4) 提取
+  const extracted = extractor.extract();
+  const files = [...extracted.files];
+  lines.push("", "=== 提取结果 ===");
+  for (const f of files) {
+    const data2 = f.extraction;
+    const head = data2 ? new TextDecoder("utf-8").decode(data2.slice(0, 120)).replace(/\n/g, "\\n") : "(目录)";
+    lines.push("- " + f.fileHeader.name + " [" + (data2 ? data2.length + " B" : "0 B") + "] -> " + head);
+  }
+  out.textContent = lines.join("\n");
+  log("完成");
+} catch (e) {
+  out.textContent = "失败: " + (e && e.message ? e.message : String(e)) + "\n" + (e && e.stack ? e.stack : "");
+}
+</script>
+</body>
+</html>
