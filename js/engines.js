@@ -546,6 +546,34 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
   }
 
   // =========================================================
+  // 歌声工程引擎：ust/ufdata/vsqx/vpr/svp/dv/ccs/mid 歌词块提取
+  // =========================================================
+  async function voiceDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载歌声工程引擎…");
+    await loadEngineScripts(p, ["voice_tools"]);
+    const n = await writeInput(p, "/axiom/input.voice", file);
+    onLog && onLog("已写入工程文件（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("开始提取歌词/文本块…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import voice_tools
+with open("/axiom/input.voice", "rb") as f:
+    data = f.read()
+voice_tools.extract_voice(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("提取完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("提取失败：" + e.message);
+      throw new Error("歌声工程提取失败：" + e.message);
+    }
+  }
+
+  // =========================================================
   // 文档引擎：docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本
   // =========================================================
   async function docDecode(file, onLog) {
@@ -676,6 +704,17 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     }
     return segs;
   }
+
+  register("voice", {
+    id: "voice",
+    label: "歌声工程引擎（ust/vsqx/svp/dv/ccs/mid 歌词块提取 → 可翻译，浏览器内）",
+    canTranslate: true,
+    formats: ["ust", "uproject", "ufdata", "vsqx", "vsq", "vpr",
+      "svp", "s5p", "dv", "dva", "dvpp", "ccs", "ccsi",
+      "mid", "midi", "smf"],
+    decompile: voiceDecode,
+    extractTextFromSource: extractTextSegments
+  });
 
   register("doc", {
     id: "doc",

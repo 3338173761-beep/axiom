@@ -22,7 +22,14 @@ const AxiomFormats = (function () {
     xlsx: "doc", xlsm: "doc", xltx: "doc", xltm: "doc",
     pptx: "doc", pptm: "doc", potx: "doc",
     odt: "doc", ott: "doc", odm: "doc", ods: "doc", ots: "doc", odp: "doc", otp: "doc",
-    epub: "doc", rtf: "doc" };
+    epub: "doc", rtf: "doc",
+    // 歌声工程引擎（歌词块提取 → 可翻译）
+    ust: "voice", uproject: "voice", ufdata: "voice",
+    vsqx: "voice", vsq: "voice", vpr: "voice",
+    svp: "voice", s5p: "voice",
+    dv: "voice", dva: "voice", dvpp: "voice",
+    ccs: "voice", ccsi: "voice",
+    mid: "voice", midi: "voice", smf: "voice" };
 
   // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
   // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
@@ -164,7 +171,7 @@ const AxiomFormats = (function () {
     let id, engine, canTranslate;
     if (KNOWN_ENGINE[ext]) {
       id = ext; engine = KNOWN_ENGINE[ext];
-      canTranslate = (engine === "doc" || engine === "rpycdec" || engine === "text");
+      canTranslate = (engine === "doc" || engine === "voice" || engine === "rpycdec" || engine === "text");
     }
     else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
     else { id = "generic"; engine = "none"; canTranslate = false; }
