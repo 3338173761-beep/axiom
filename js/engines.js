@@ -546,6 +546,34 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
   }
 
   // =========================================================
+  // 文档引擎：docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本
+  // =========================================================
+  async function docDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载文档引擎…");
+    await loadEngineScripts(p, ["doc_tools"]);
+    const n = await writeInput(p, "/axiom/input.doc", file);
+    onLog && onLog("已写入文档（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("开始提取文本（解包 XML / 剥离 RTF）…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import doc_tools
+with open("/axiom/input.doc", "rb") as f:
+    data = f.read()
+doc_tools.extract_document(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("提取完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("提取失败：" + e.message);
+      throw new Error("文档提取失败：" + e.message);
+    }
+  }
+
+  // =========================================================
   // 综合归档引擎：tar/zip/gz/bz2/xz/lzma/zst/br/lz4/uue/ar/cpio/deb
   // =========================================================
   async function archiveDecode(file, onLog) {
@@ -648,6 +676,17 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     }
     return segs;
   }
+
+  register("doc", {
+    id: "doc",
+    label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本，浏览器内）",
+    canTranslate: true,
+    formats: ["docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
+      "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
+      "epub", "rtf"],
+    decompile: docDecode,
+    extractTextFromSource: extractTextSegments
+  });
 
   register("archive", {
     id: "archive",

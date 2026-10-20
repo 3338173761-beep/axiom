@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Axiom 文档引擎综合测试</title>
+<style>
+body{font-family:monospace;background:#0b1020;color:#d7e0ff;padding:20px}
+pre{white-space:pre-wrap;background:#111a33;border:1px solid #2a3a6a;padding:12px;border-radius:8px}
+</style>
+</head>
+<body>
+<h2>Axiom 文档引擎综合测试（6 格式）</h2>
+<div id="log"></div>
+<pre id="out">测试中…</pre>
+<script src="js/format-data.js"></script>
+<script src="js/format.js"></script>
+<script src="js/engines.js"></script>
+<script>
+function log(m){const d=document.createElement("div");d.textContent=m;document.getElementById("log").appendChild(d);}
+async function main(){
+  const out = document.getElementById("out");
+  const samples = ["sample.docx","sample.xlsx","sample.pptx","sample.odt","sample.epub","sample.rtf"];
+  const log2 = [];
+  let pass = 0, fail = 0;
+  for (const name of samples) {
+    try {
+      const resp = await fetch("test/_arctmp/" + name);
+      if (!resp.ok) { log2.push(name + ": 样本404"); fail++; continue; }
+      const file = new File([await resp.blob()], name);
+      const fmt = await AxiomFormats.identify(file);
+      if (fmt.engine !== "doc" || !fmt.canTranslate) { log2.push(name + ": 路由失败 engine=" + fmt.engine + " canTranslate=" + fmt.canTranslate); fail++; continue; }
+      const eng = AxiomEngines.get("doc");
+      const result = await eng.decompile(file, () => {});
+      const hasText = /[\u4e00-\u9fff]/.test(result) || /Hello|Slide|RTF|EPUB|Second|paragraph/i.test(result);
+      log2.push(name + ": " + (hasText ? "OK" : "FAIL") + " | " + result.replace(/\n/g, " ⏎ ").slice(0, 120));
+      if (hasText) pass++; else fail++;
+    } catch (e) {
+      log2.push(name + ": ERR " + e.message); fail++;
+    }
+  }
+  out.textContent = "=== 文档引擎 6 格式测试 ===\n" + log2.join("\n") +
+    "\n\n通过: " + pass + " / 失败: " + fail;
+}
+main();
+</script>
+</body>
+</html>

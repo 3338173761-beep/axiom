@@ -16,7 +16,13 @@ const AxiomFormats = (function () {
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
     zip: "archive", gz: "archive", bz2: "archive", xz: "archive", lzma: "archive",
     zst: "archive", br: "archive", lz4: "archive", uue: "archive",
-    ar: "archive", cpio: "archive", deb: "archive" };
+    ar: "archive", cpio: "archive", deb: "archive",
+    // 文档引擎（zip 容器 → 文本提取 → 可翻译）
+    docx: "doc", docm: "doc", dotx: "doc", dotm: "doc",
+    xlsx: "doc", xlsm: "doc", xltx: "doc", xltm: "doc",
+    pptx: "doc", pptm: "doc", potx: "doc",
+    odt: "doc", ott: "doc", odm: "doc", ods: "doc", ots: "doc", odp: "doc", otp: "doc",
+    epub: "doc", rtf: "doc" };
 
   // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
   // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
@@ -156,7 +162,10 @@ const AxiomFormats = (function () {
     if (!t) return null;
     const lvl = t.lvl || "";
     let id, engine, canTranslate;
-    if (KNOWN_ENGINE[ext]) { id = ext; engine = KNOWN_ENGINE[ext]; canTranslate = false; }
+    if (KNOWN_ENGINE[ext]) {
+      id = ext; engine = KNOWN_ENGINE[ext];
+      canTranslate = (engine === "doc" || engine === "rpycdec" || engine === "text");
+    }
     else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
     else { id = "generic"; engine = "none"; canTranslate = false; }
     const lvlHint = KNOWN_ENGINE[ext] ? (lvl === "翻译" ? "浏览器内可直接阅读并 AI 翻译。" : "浏览器内支持解析/反编译。") :
