@@ -336,3 +336,165 @@ body {
   .code-wrap { font-size: 12px; }
   .line-no { width: 38px; }
 }
+
+/* ============================================================
+ * 赛博朋克双主题（原版默认 → 点击切换 → 炫酷转场）
+ * ============================================================ */
+
+/* ---- 二进制矩阵雨画布（cyber 模式激活）---- */
+#cyberRain {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  opacity: 0; transition: opacity 0.9s ease;
+}
+:root[data-theme="cyber"] #cyberRain { opacity: 1; }
+
+/* ---- 顶栏右侧（引擎徽章 + 切换按钮）---- */
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+
+.btn-theme {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(34, 211, 238, 0.08); color: var(--accent);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 999px; padding: 6px 13px; cursor: pointer;
+  font-size: 12.5px; font-weight: 600; font-family: inherit;
+  transition: all 0.25s; white-space: nowrap;
+}
+.btn-theme:hover { background: rgba(34, 211, 238, 0.16); box-shadow: 0 0 14px rgba(34, 211, 238, 0.3); }
+.btn-theme:active { transform: scale(0.95); }
+.btn-theme.cyber-on {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.14), rgba(255, 46, 196, 0.14));
+  border-color: rgba(255, 46, 196, 0.45); color: #7fffb0;
+  box-shadow: 0 0 16px rgba(0, 255, 163, 0.25);
+}
+.btn-theme-ico { flex: none; }
+
+/* ---- 右下角悬浮切换按钮 ---- */
+.btn-theme-float {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60;
+  width: 46px; height: 46px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(7, 11, 24, 0.85); color: var(--accent);
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  cursor: pointer; transition: all 0.25s; backdrop-filter: blur(8px);
+}
+.btn-theme-float:hover { box-shadow: 0 0 22px rgba(34, 211, 238, 0.45); transform: scale(1.06); }
+.btn-theme-float:active { transform: scale(0.94); }
+.btn-theme-float.cyber-on {
+  color: #00ffa3; border-color: rgba(0, 255, 163, 0.55);
+  box-shadow: 0 0 26px rgba(0, 255, 163, 0.5);
+  background: rgba(4, 12, 20, 0.9);
+}
+
+/* ---- 转场动画层 ---- */
+.theme-fx {
+  position: fixed; inset: 0; z-index: 999; pointer-events: none;
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.theme-fx.fx-on { opacity: 1; background: rgba(1, 3, 8, 0.96); }
+/* 扫描光柱 */
+.theme-fx.fx-on::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 24%;
+  background: linear-gradient(180deg, transparent, rgba(0, 245, 255, 0.14), rgba(255, 46, 196, 0.1), transparent);
+  animation: fxScan 1s ease-in-out infinite;
+}
+@keyframes fxScan { 0% { top: -24%; } 100% { top: 100%; } }
+/* 收幕：向上收起 */
+.theme-fx.fx-exit { animation: fxLift 0.7s ease forwards; }
+@keyframes fxLift { from { transform: translateY(0); } to { transform: translateY(-100%); } }
+
+/* 黑客风代码涌流（入场） */
+.fx-boot {
+  position: absolute; inset: 0; overflow: hidden;
+  font-family: var(--mono); font-size: 13px; line-height: 1.9;
+  letter-spacing: 2px; opacity: 0;
+}
+.fx-boot::before {
+  content: "01010100 01101000 01100101\A01110011 01111001 01110011\A01110100 01100101 01101101\A00100000 01100010 01101111 01101111\A01110100 01101001 01101110 01100111\A00101110 00101110 00101110\A01100001 01100011 01100011 01100101\A01110011 01110011 00100000 01100111\A01110010 01100001 01101110 01110100\A01100101 01100100";
+  position: absolute; left: 50%; top: 0;
+  transform: translateX(-50%) translateY(-120%);
+  white-space: pre-wrap; text-align: center;
+  color: rgba(0, 255, 163, 0.85);
+  text-shadow: 0 0 14px rgba(0, 255, 163, 0.85), 0 0 40px rgba(0, 255, 163, 0.35);
+}
+.fx-boot-run { opacity: 1; }
+.fx-boot-run::before { animation: fxFall 1.05s cubic-bezier(0.2, 0.6, 0.3, 1) forwards; }
+@keyframes fxFall { from { transform: translateX(-50%) translateY(-120%); } to { transform: translateX(-50%) translateY(110%); } }
+/* 退场：代码回卷 */
+.fx-boot-exit { opacity: 1; }
+.fx-boot-exit::before { animation: fxRise 0.7s cubic-bezier(0.4, 0, 0.6, 1) forwards; }
+@keyframes fxRise { from { transform: translateX(-50%) translateY(110%); } to { transform: translateX(-50%) translateY(-120%); } }
+
+/* ---- cyber 主题变量 ---- */
+:root[data-theme="cyber"] {
+  --bg: #02040a;
+  --bg-soft: #060a16;
+  --card: rgba(8, 16, 26, 0.78);
+  --card-border: rgba(0, 245, 255, 0.22);
+  --line: rgba(0, 245, 255, 0.14);
+  --text: #d9fcf3;
+  --text-dim: #6fd9c7;
+  --text-faint: #3d7a6d;
+  --accent: #00ffa3;
+  --accent2: #ff2ec4;
+  --ok: #00ffa3;
+  --warn: #ffd166;
+  --err: #ff4d6d;
+  --grad: linear-gradient(135deg, #00f5ff, #ff2ec4);
+  --shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- cyber 组件叠加 ---- */
+:root[data-theme="cyber"] .bg-glow {
+  background:
+    radial-gradient(700px 500px at 12% 0%, rgba(0, 255, 163, 0.10), transparent 70%),
+    radial-gradient(800px 600px at 88% 12%, rgba(255, 46, 196, 0.12), transparent 70%),
+    radial-gradient(900px 600px at 50% 100%, rgba(0, 245, 255, 0.06), transparent 70%);
+}
+:root[data-theme="cyber"] .bg-grid { opacity: 0.5; }
+:root[data-theme="cyber"] .topbar {
+  background: rgba(2, 4, 10, 0.8);
+  border-bottom: 1px solid rgba(0, 255, 163, 0.25);
+}
+:root[data-theme="cyber"] .brand-name { text-shadow: 0 0 16px rgba(0, 255, 163, 0.55); }
+:root[data-theme="cyber"] .brand-logo { filter: drop-shadow(0 0 12px rgba(0, 255, 163, 0.5)); }
+:root[data-theme="cyber"] .card {
+  border-color: rgba(0, 255, 163, 0.22);
+  box-shadow: 0 0 24px rgba(0, 255, 163, 0.07), var(--shadow);
+}
+:root[data-theme="cyber"] .step-no { background: var(--grad); box-shadow: 0 0 16px rgba(255, 46, 196, 0.4); }
+:root[data-theme="cyber"] .hero-title em {
+  background: var(--grad); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 20px rgba(255, 46, 196, 0.5));
+}
+:root[data-theme="cyber"] .btn-primary {
+  background: var(--grad);
+  box-shadow: 0 6px 24px rgba(255, 46, 196, 0.4);
+}
+:root[data-theme="cyber"] .btn-primary:not(:disabled):hover { box-shadow: 0 8px 30px rgba(255, 46, 196, 0.55); }
+:root[data-theme="cyber"] .dropzone { border-color: rgba(0, 255, 163, 0.4); }
+:root[data-theme="cyber"] .dropzone:hover { border-color: var(--accent); background: rgba(0, 255, 163, 0.06); }
+:root[data-theme="cyber"] .dropzone.dragover {
+  border-color: var(--accent); background: rgba(0, 255, 163, 0.10);
+  box-shadow: 0 0 40px rgba(0, 255, 163, 0.35);
+}
+:root[data-theme="cyber"] .dz-icon { filter: drop-shadow(0 0 12px rgba(0, 255, 163, 0.5)); }
+:root[data-theme="cyber"] .fmt-chip { border-color: rgba(0, 255, 163, 0.25); color: #7fffb0; }
+:root[data-theme="cyber"] .fmt-chip:hover { border-color: rgba(255, 46, 196, 0.6); color: #fff; }
+:root[data-theme="cyber"] .code-wrap {
+  background: rgba(0, 6, 12, 0.85);
+  border-color: rgba(0, 255, 163, 0.2);
+}
+:root[data-theme="cyber"] .progress-fill { background: var(--grad); }
+:root[data-theme="cyber"] .progress-log { border-color: rgba(0, 255, 163, 0.18); color: #7fffb0; }
+:root[data-theme="cyber"] .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+:root[data-theme="cyber"] .switch input:checked + .switch-slider { background: var(--grad); }
+:root[data-theme="cyber"] .text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 255, 163, 0.15); }
+:root[data-theme="cyber"] .dropzone:focus-visible { box-shadow: 0 0 0 3px rgba(0, 255, 163, 0.2); }
+:root[data-theme="cyber"] .btn-secondary {
+  background: rgba(255, 46, 196, 0.14); color: #ff9bd8;
+  border-color: rgba(255, 46, 196, 0.4);
+}
+:root[data-theme="cyber"] .btn-secondary:not(:disabled):hover { background: rgba(255, 46, 196, 0.24); }
+:root[data-theme="cyber"] .engine-badge { border-color: rgba(0, 255, 163, 0.25); }

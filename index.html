@@ -12,6 +12,13 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
+<!-- 赛博模式：二进制矩阵雨背景（仅在 cyber 主题激活） -->
+<canvas id="cyberRain" aria-hidden="true"></canvas>
+<!-- 主题切换转场动画层 -->
+<div id="themeFX" class="theme-fx" aria-hidden="true">
+  <div class="fx-boot" id="fxBoot"></div>
+</div>
+
 <!-- 顶栏 -->
 <header class="topbar">
   <div class="topbar-inner">
@@ -30,9 +37,15 @@
         <span class="brand-sub">多格式自动反编译器</span>
       </div>
     </div>
-    <div class="engine-badge" id="engineBadge">
-      <span class="dot" id="runtimeDot"></span>
-      <span id="runtimeText">引擎未加载</span>
+    <div class="topbar-right">
+      <div class="engine-badge" id="engineBadge">
+        <span class="dot" id="runtimeDot"></span>
+        <span id="runtimeText">引擎未加载</span>
+      </div>
+      <button id="btnTheme" class="btn-theme" type="button" aria-label="切换赛博主题">
+        <svg class="btn-theme-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none"/></svg>
+        <span class="btn-theme-txt">赛博模式</span>
+      </button>
     </div>
   </div>
 </header>
@@ -176,10 +189,16 @@
   <span id="footEngine">引擎层：Pyodide · 浏览器本地运行 · 待加载</span>
 </footer>
 
+<!-- 右下角悬浮主题切换 -->
+<button id="btnThemeFloat" class="btn-theme-float" type="button" aria-label="切换赛博主题">
+  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="currentColor" stroke="none"/></svg>
+</button>
+
 <script src="js/format-data.js"></script>
 <script src="js/format.js"></script>
 <script src="js/engines.js"></script>
 <script src="js/translate.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
