@@ -99,7 +99,12 @@ const AxiomTranslate = (function () {
       const t = translations[i];
       if (t == null) continue;
       const seg = segs[i];
-      // 保留原始引号风格
+      if (seg.plain) {
+        // 纯文本段（text 引擎）：直接替换整行，不加引号
+        edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: t });
+        continue;
+      }
+      // 保留原始引号风格（rpyc 等源码段）
       const quote = seg.raw.startsWith('"') ? '"' : "'";
       edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: quote + t.replace(/"/g, '\\"') + quote });
     }

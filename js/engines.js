@@ -486,5 +486,40 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
     decompile: binDecode
   });
 
+  // =========================================================
+  // text 引擎：纯文本/脚本/标记/歌词/字幕 → 浏览器直读 + AI 语境翻译
+  // =========================================================
+  async function textDecode(file, onLog) {
+    onLog && onLog("读取文本内容…");
+    const text = await file.text();
+    onLog && onLog("读取完成（" + (text.length / 1024).toFixed(1) + " KB）");
+    return text;
+  }
+
+  function extractTextSegments(src) {
+    // 按行提取可翻译段：非空、含字母/汉字、非纯符号数字
+    const segs = [];
+    const lines = String(src).split("\n");
+    let pos = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const t = line.trim();
+      if (t.length >= 2 && /[A-Za-z\u4e00-\u9fff]/.test(t) && !/^[\s\d\W_]+$/.test(t)) {
+        segs.push({ raw: line, text: t, start: pos, plain: true });
+      }
+      pos += line.length + 1;
+    }
+    return segs;
+  }
+
+  register("text", {
+    id: "text",
+    label: "通用文本引擎（浏览器直读 + AI 语境翻译）",
+    canTranslate: true,
+    formats: ["txt", "log", "md", "csv", "json", "xml", "srt", "lrc", "ps1", "rpy", "py", "js", "ts", "html", "css"],
+    decompile: textDecode,
+    extractTextFromSource: extractTextSegments
+  });
+
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

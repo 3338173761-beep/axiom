@@ -97,9 +97,12 @@
   // ---------- 格式徽章云 ----------
   (function buildCloud() {
     const chips = [
-      ".rpyc", ".rpymc", ".rpa", ".pyc", ".dex", ".apk", ".jar", ".class", ".dll", ".exe", "ELF"
+      ".rpyc", ".rpymc", ".rpa", ".pyc", ".dex", ".apk", ".jar", ".class", ".dll", ".exe", "ELF",
+      ".txt", ".md", ".csv", ".srt", ".lrc", ".ps1", ".ust", ".svp"
     ];
-    els.fmtCloud.innerHTML = chips.map(c => `<span class="fmt-chip">${c}</span>`).join("");
+    const count = (typeof AxiomFormats.tableCount === "function") ? AxiomFormats.tableCount() : 0;
+    els.fmtCloud.innerHTML = chips.map(c => `<span class="fmt-chip">${c}</span>`).join("") +
+      (count ? `<span class="fmt-chip fmt-chip-hi">共 ${count} 格式可识别</span>` : "");
   })();
 
   // ---------- 上传 ----------
@@ -148,6 +151,10 @@
   function showInfo(info) {
     els.cardInfo.classList.remove("hidden");
     const b = info.badge || {};
+    const tbl = info.fmtTable;
+    const tblLine = tbl
+      ? `<div class="fmt-meta">格式库：${tbl.cat || "?"} · 可行性：${tbl.lvl || "?"} · 优先级：${tbl.pri || "?"}</div>`
+      : "";
     els.formatBanner.innerHTML = `
       <div class="fmt-name">
         <span class="fmt-badge" style="background:${b.color || "#94a3b8"}">${b.ch || "?"}</span>
@@ -155,6 +162,7 @@
         <span style="opacity:.7;font-size:12px;font-weight:400">（${info.ext}）</span>
       </div>
       <div class="fmt-meta">${info.desc}</div>
+      ${tblLine}
       <div class="fmt-meta">引擎：${(AxiomEngines.get(info.engine) || { label: "—" }).label} · 可翻译：${info.canTranslate ? "是 ✓" : "否"}</div>
       <div class="fmt-meta">大小：${fmtSize(info.size)} · 文件头：<span class="fmt-head">${info.headHex || "—"}</span></div>`;
     els.translateToggle.checked = false;
@@ -169,7 +177,10 @@
     if (!currentFile || !currentInfo) return;
     const engine = AxiomEngines.get(currentInfo.engine);
     if (!engine || typeof engine.decompile !== "function") {
-      alert("「" + currentInfo.label + "」的完整反编译引擎将在 Windows/Android 端提供（JADX/ILSpy 原生）。当前网页端已支持 rpyc/rpymc/rpa/pyc 真实反编译。");
+      const hint = currentInfo.fmtLvl === "仅识别"
+        ? "该格式在浏览器内仅可识别元数据；完整反编译将在 Windows/Android 端提供。"
+        : "该格式的完整解析引擎将在 Windows/Android 端提供（持续接入中）。当前浏览器内已支持：Ren'Py / Python / DEX / APK / Java / .NET / 原生二进制 / 纯文本翻译。";
+      alert("「" + currentInfo.label + "」" + hint);
       return;
     }
     // 点击反编译 → 翻译按钮立即亮起（可翻译格式）；此时点翻译会排队，等结果出来后自动执行

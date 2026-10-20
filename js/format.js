@@ -1,7 +1,46 @@
-/* Axiom Web — 格式识别（扩展名 + 文件头魔数） */
+/* Axiom Web — 格式识别（扩展名 + 文件头魔数 + 627 全格式表） */
 "use strict";
 
 const AxiomFormats = (function () {
+
+  // ---- 627 全格式表（由调研自动生成，format-data.js 注入） ----
+  const EXT_TABLE = (typeof window !== "undefined" && window.AXIOM_FORMAT_TABLE) || {};
+  const AMBIGUOUS = (typeof window !== "undefined" && window.AXIOM_AMBIGUOUS) || [];
+
+  // 已有完整引擎的格式（直接路由到现有引擎）
+  const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
+    dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
+    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", msi: "dotnet", sys: "dotnet" };
+
+  // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
+  // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
+  const TEXT_EXTS = new Set();
+  (function buildTextExts() {
+    for (const ext in EXT_TABLE) {
+      if (EXT_TABLE[ext].lvl === "翻译") TEXT_EXTS.add(ext);
+    }
+    // 补充常见纯文本/标记/脚本/配置/歌词/字幕（部分在"解析/解包"级但可直接读文本）
+    const more = ["txt", "log", "md", "csv", "tsv", "json", "xml", "ini", "conf", "cfg", "yaml", "yml",
+      "srt", "sub", "lrc", "ass", "ssa", "vtt", "html", "htm", "xhtml", "css", "js", "mjs", "ts",
+      "py", "rpy", "java", "c", "h", "cpp", "hpp", "cs", "go", "rs", "php", "rb", "pl", "sh", "bat",
+      "cmd", "ps1", "lua", "sql", "toml", "properties", "env", "gitignore", "dockerfile", "makefile",
+      "tex", "latex", "texinfo", "man", "info", "pod", "rtf", "csv", "tsv", "nfo", "diz", "readme",
+      "html", "htm", "xhtml", "svg", "graphql", "gql", "proto", "kt", "kts", "swift", "m", "mm",
+      "scala", "clj", "ex", "exs", "erl", "hrl", "hs", "ml", "lisp", "cl", "scm", "r", "jl", "dart",
+      "vue", "jsx", "tsx", "svelte", "astro", "ipynb", "tpl", "twig", "j2", "jinja", "mustache", "hbs",
+      "njk", "ejs", "pug", "haml", "slim", "styl", "less", "scss", "sass", "coffee", "groovy", "gradle",
+      "vb", "vbs", "frm", "bas", "pas", "dpr", "lpr", "f90", "f95", "f03", "f", "for", "ada", "adb",
+      "ads", "m4", "cmake", "ninja", "mk", "am", "ac", "spec", "service", "timer", "desktop", "ini",
+      "reg", "inf", "pub", "asc", "sig", "pem", "key", "crt", "cer", "der", "pfx", "p12", "csr",
+      "xml", "dtd", "xsl", "xslt", "wsdl", "rdf", "ttl", "nt", "jsonld", "geojson", "kml", "gpx", "osm",
+      "ipynb", "nix", "flake", "lock", "po", "pot", "mo", "gmo", "diff", "patch", "rej", "orig", "bak",
+      "tmp", "swp", "swo", "old", "new", "orig", "rej", "diff", "patch", "changelog", "changes", "news",
+      "authors", "copying", "license", "todo", "notes", "readme", "contributing", "security",
+      // 歌声合成 / 音乐工程（文本型：可直接读取 + 翻译歌词）
+      "ust", "ustx", "vsq", "vsqx", "vpr", "s5p", "svp", "ccs", "ccst", "acep", "ace", "ds", "dspx",
+      "ufdata", "musicxml", "mxl", "ly", "lily", "lilypond", "abc", "tja", "f2n", "osu"];
+    for (const e of more) TEXT_EXTS.add(e);
+  })();
 
   // ---- 魔数表 ----
   const MAGIC = {
@@ -77,10 +116,48 @@ const AxiomFormats = (function () {
       id: "unknown", label: "未知格式", ext: "?", engine: "none",
       canTranslate: false,
       badge: { ch: "?", color: "#94a3b8" },
-      desc: "未识别的文件类型。当前版本已支持 Ren'Py / Python / Java 系，更多格式持续接入。",
+      desc: "未识别的文件类型。当前版本已支持 Ren'Py / Python / Java / 二进制 / 全格式识别。",
       icon: "？",
     },
+    text: {
+      id: "text", label: "纯文本 / 脚本", ext: "txt 等", engine: "text",
+      canTranslate: true,
+      badge: { ch: "T", color: "#34d399" },
+      desc: "纯文本 / 脚本 / 标记 / 歌词 / 字幕文件。浏览器内直读并支持 AI 语境翻译。",
+      icon: "≋",
+    },
+    generic: {
+      id: "generic", label: "已识别格式", ext: "? ", engine: "none",
+      canTranslate: false,
+      badge: { ch: "◇", color: "#f59e0b" },
+      desc: "格式已识别（来自 627 格式库）。浏览器端可显示元数据；完整解析视格式复杂度逐步接入。",
+      icon: "◇",
+    },
   };
+
+  // 由 627 表动态构建元数据
+  function metaFromTable(ext) {
+    const t = EXT_TABLE[ext];
+    if (!t) return null;
+    const lvl = t.lvl || "";
+    let id, engine, canTranslate;
+    if (KNOWN_ENGINE[ext]) { id = ext; engine = KNOWN_ENGINE[ext]; canTranslate = false; }
+    else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
+    else { id = "generic"; engine = "none"; canTranslate = false; }
+    const lvlHint = lvl === "不可行/需重" ? "该格式在浏览器内暂不可行（需专用内核/解码库），完整能力将在 Windows/Android 端提供。" :
+      lvl === "仅识别" ? "浏览器内仅识别元数据，完整解析将在 Windows/Android 端提供。" :
+      lvl === "反编译" ? "浏览器内支持反编译。" :
+      lvl === "解析/解包" ? "浏览器内支持结构解析/解包（逐步接入）。" :
+      lvl === "翻译" ? "浏览器内可直接阅读并 AI 翻译。" : "";
+    return {
+      id, label: t.label || ext, ext: "." + ext, engine,
+      canTranslate,
+      badge: { ch: (t.cat || "?").slice(0, 1), color: lvl === "翻译" ? "#34d399" : lvl === "反编译" ? "#22d3ee" : lvl === "解析/解包" ? "#60a5fa" : "#f59e0b" },
+      desc: (t.desc || "") + " " + lvlHint,
+      icon: id === "text" ? "≋" : "◇",
+      fmtCat: t.cat, fmtLvl: lvl, fmtPri: t.pri, fmtSrc: t.src, fmtPath: t.path,
+    };
+  }
 
   // ---- 识别 ----
   async function identify(file) {
@@ -90,6 +167,7 @@ const AxiomFormats = (function () {
     const hex = Array.from(head.slice(0, 8)).map(b => b.toString(16).padStart(2, "0")).join(" ").toUpperCase();
 
     let id = null;
+    let tableHit = null;
 
     // 魔数优先
     if (startsWith(head, MAGIC.dex[0])) id = "dex";
@@ -104,6 +182,23 @@ const AxiomFormats = (function () {
     else if (MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
     else if (ext === "pyc" || ext === "pyo") id = "pyc";
 
+    // 627 全格式表（扩展名）
+    if (!id && EXT_TABLE[ext]) {
+      tableHit = EXT_TABLE[ext];
+      if (KNOWN_ENGINE[ext]) id = ext;
+      else if (TEXT_EXTS.has(ext)) id = "text";
+      else id = "generic";
+    }
+
+    // 文本内容兜底（UTF-8 可解码的纯文本）
+    if (!id) {
+      const probe = await file.slice(0, 2048).text().catch(() => null);
+      if (probe != null && !probe.includes("\uFFFD")) {
+        const t = probe.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "").trim();
+        if (t.length >= 4 && t.length <= 2048) id = "text";
+      }
+    }
+
     // 扩展名兜底
     if (!id) {
       if (ext === "rpyc" || ext === "rpymc") id = "rpyc";
@@ -116,16 +211,19 @@ const AxiomFormats = (function () {
       else id = "unknown";
     }
 
-    const meta = META[id];
+    // 元数据：表命中 → 动态构建；否则静态 META
+    const meta = tableHit ? metaFromTable(ext) : META[id];
     return Object.assign({}, meta, {
       ext: ext || "(无扩展名)",
       size,
       headHex: hex,
       magicNote: id === "pyc" ? "Python 字节码（magic 0x" + Array.from(head.slice(0, 4)).map(b => b.toString(16).padStart(2, "0")).join("") + "）" : "",
+      fmtTable: tableHit || null,
     });
   }
 
   function list() { return Object.values(META); }
+  function tableCount() { return Object.keys(EXT_TABLE).length; }
 
-  return { identify, list, MAGIC };
+  return { identify, list, tableCount, MAGIC };
 })();
