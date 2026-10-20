@@ -546,6 +546,42 @@ bin_disasm.decompile_binary(data, ${JSON.stringify(file.name)})
   }
 
   // =========================================================
+  // 综合归档引擎：tar/zip/gz/bz2/xz/lzma/zst/br/lz4/uue/ar/cpio/deb
+  // =========================================================
+  async function archiveDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载归档解包引擎…");
+    await loadEngineScripts(p, ["archive_tools"]);
+    // 可选压缩包：lzma(必需xz/lzma/txz) + zstd/brotli/lz4（按需，失败降级）
+    for (const pkg of ["lzma", "zstandard", "brotli", "lz4"]) {
+      try {
+        await p.loadPackage(pkg);
+      } catch (e) {
+        onLog && onLog(pkg + " 不可用（对应压缩方法降级）：" + e.message);
+      }
+    }
+    const n = await writeInput(p, "/axiom/input.arc", file);
+    onLog && onLog("已写入归档（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("开始解包…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import archive_tools
+with open("/axiom/input.arc", "rb") as f:
+    data = f.read()
+archive_tools.decompile_archive(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("解包完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解包失败：" + e.message);
+      throw new Error("归档解包失败：" + e.message);
+    }
+  }
+
+  // =========================================================
   // 7z 引擎：自研解析器（LZMA/LZMA2/Deflate/BZip2/Copy/ZSTD/BCJ 链式）
   // =========================================================
   async function sevenzDecode(file, onLog) {
@@ -612,6 +648,14 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     }
     return segs;
   }
+
+  register("archive", {
+    id: "archive",
+    label: "综合归档引擎（tar/zip/gz/bz2/xz/zst/br/lz4/uue/ar/cpio/deb，浏览器内）",
+    canTranslate: false,
+    formats: ["tar", "tgz", "tbz2", "txz", "tzst", "zip", "gz", "bz2", "xz", "lzma", "zst", "br", "lz4", "uue", "ar", "cpio", "deb"],
+    decompile: archiveDecode
+  });
 
   register("rar", {
     id: "rar",

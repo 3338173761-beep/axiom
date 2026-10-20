@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Axiom 归档引擎综合测试</title>
+<style>
+body{font-family:monospace;background:#0b1020;color:#d7e0ff;padding:20px}
+pre{white-space:pre-wrap;background:#111a33;border:1px solid #2a3a6a;padding:12px;border-radius:8px}
+.ok{color:#4ade80}.fail{color:#f87171}
+</style>
+</head>
+<body>
+<h2>Axiom 归档引擎综合测试（15 格式）</h2>
+<div id="log"></div>
+<pre id="out">测试中…</pre>
+<script src="js/format-data.js"></script>
+<script src="js/format.js"></script>
+<script src="js/engines.js"></script>
+<script>
+function log(m){const d=document.createElement("div");d.textContent=m;document.getElementById("log").appendChild(d);}
+async function main(){
+  const out = document.getElementById("out");
+  const samples = ["sample.tar","sample.tgz","sample.tbz2","sample.txz","sample.zip",
+    "sample.gz","sample.bz2","sample.xz","sample.lzma","sample.uue",
+    "sample.ar","sample.cpio","sample.zst","sample.br","sample.lz4"];
+  const lines = [];
+  const log2 = [];
+  let pass = 0, fail = 0;
+  for (const name of samples) {
+    try {
+      const resp = await fetch("test/_arctmp/" + name);
+      if (!resp.ok) { log2.push(name + ": 样本404"); fail++; continue; }
+      const file = new File([await resp.blob()], name);
+      const fmt = await AxiomFormats.identify(file);
+      if (fmt.engine !== "archive") { log2.push(name + ": 识别失败 engine=" + fmt.engine); fail++; continue; }
+      const eng = AxiomEngines.get("archive");
+      const result = await eng.decompile(file, () => {});
+      const first = result.split("\n")[0];
+      const ok = /共 \d+ 个文件/.test(first);
+      log2.push(name + ": " + (ok ? "OK" : "FAIL") + " | " + first);
+      if (ok) pass++; else fail++;
+    } catch (e) {
+      log2.push(name + ": ERR " + e.message); fail++;
+    }
+  }
+  out.textContent = "=== 归档引擎 15 格式测试 ===\n" + log2.join("\n") +
+    "\n\n通过: " + pass + " / 失败: " + fail;
+}
+main();
+</script>
+</body>
+</html>

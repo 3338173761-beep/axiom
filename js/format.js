@@ -11,7 +11,12 @@ const AxiomFormats = (function () {
   const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
     dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
     exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", msi: "dotnet", sys: "dotnet",
-    "7z": "sevenz", rar: "rar" };
+    "7z": "sevenz", rar: "rar",
+    // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
+    tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
+    zip: "archive", gz: "archive", bz2: "archive", xz: "archive", lzma: "archive",
+    zst: "archive", br: "archive", lz4: "archive", uue: "archive",
+    ar: "archive", cpio: "archive", deb: "archive" };
 
   // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
   // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
@@ -49,9 +54,16 @@ const AxiomFormats = (function () {
     rpa: [[0x52, 0x45, 0x4e, 0x50, 0x59, 0x20, 0x52, 0x50, 0x41]],   // "RENPY RPA"
     dex: [[0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35]],               // "dex\n035"
     class: [[0xca, 0xfe, 0xba, 0xbe]],                               // Java class
-    zip: [[0x50, 0x4b, 0x03, 0x04]],                                 // zip（apk/jar）
+    zip: [[0x50, 0x4b, 0x03, 0x04]],                                 // zip（apk/jar/docx 等容器）
     "7z": [[0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c]],                     // 7z
     rar: [[0x52, 0x61, 0x72, 0x21, 0x1a, 0x07]],                     // "Rar!\x1a\x07"（RAR4/RAR5）
+    gz: [[0x1f, 0x8b]],                                              // gzip
+    bz2: [[0x42, 0x5a, 0x68]],                                       // "BZh"
+    xz: [[0xfd, 0x37, 0x7a, 0x58, 0x5a, 0x00]],                       // xz
+    zst: [[0x28, 0xb5, 0x2f, 0xfd]],                                  // zstd
+    lz4: [[0x04, 0x22, 0x4d, 0x18]],                                  // lz4 frame
+    ar: [[0x21, 0x3c, 0x61, 0x72, 0x63, 0x68, 0x3e, 0x0a]],           // "!<arch>\n"
+    cpio: [[0x30, 0x37, 0x30, 0x37, 0x30, 0x31], [0x30, 0x37, 0x30, 0x37, 0x30, 0x32]], // newc/odc
     pe: [[0x4d, 0x5a]],                                             // MZ（exe/dll）
     elf: [[0x7f, 0x45, 0x4c, 0x46]],                                 // ELF
   };
@@ -179,11 +191,21 @@ const AxiomFormats = (function () {
     else if (startsWith(head, MAGIC.rpa[0])) id = "rpa";
     else if (startsWith(head, MAGIC["7z"][0])) id = "7z";
     else if (startsWith(head, MAGIC.rar[0])) id = "rar";
+    else if (startsWith(head, MAGIC.gz[0])) id = "gz";
+    else if (startsWith(head, MAGIC.bz2[0])) id = "bz2";
+    else if (startsWith(head, MAGIC.xz[0])) id = "xz";
+    else if (startsWith(head, MAGIC.zst[0])) id = "zst";
+    else if (startsWith(head, MAGIC.lz4[0])) id = "lz4";
+    else if (startsWith(head, MAGIC.ar[0])) id = "ar";
+    else if (MAGIC.cpio.some(m => startsWith(head, m))) id = "cpio";
     else if (startsWith(head, MAGIC.elf[0])) id = "binary";
     else if (startsWith(head, MAGIC.pe[0])) id = "binary";
     else if (startsWith(head, MAGIC.zip[0])) {
+      // zip 容器分流：apk/jar/docx/xlsx/普通 zip → 各自引擎
       if (ext === "apk" || ext === "aab" || ext === "xapk") id = "apk";
-      else id = "jar";
+      else if (ext === "jar" || ext === "class") id = "jar";
+      else if (KNOWN_ENGINE[ext]) id = ext;                          // docx 等 zip 容器走已挂引擎
+      else id = "zip";                                               // 普通 zip → 归档引擎
     }
     else if (MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
     else if (ext === "pyc" || ext === "pyo") id = "pyc";
@@ -218,6 +240,7 @@ const AxiomFormats = (function () {
       else if (ext === "jar" || ext === "class") id = "jar";
       else if (ext === "7z") id = "7z";
       else if (ext === "rar") id = "rar";
+      else if (KNOWN_ENGINE[ext] && KNOWN_ENGINE[ext] === "archive") id = ext;
       else if (ext === "exe" || ext === "dll" || ext === "so" || ext === "elf" || ext === "o" || ext === "bin") id = "binary";
       else id = "unknown";
     }
