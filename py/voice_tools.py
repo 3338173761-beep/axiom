@@ -4,7 +4,7 @@
 MIDI 为 SMF 二进制（自研解析）。
 输出：可翻译歌词/文本块（保留换行结构）
 """
-import io, os, sys, re
+import io, os, sys, re, json, zlib
 
 
 def _try_decode(data, encs=("utf-8", "utf-8-sig", "gb18030", "shift_jis", "latin-1")):
@@ -52,7 +52,7 @@ def extract_vsqx(data):
 
 
 def extract_vsq(data):
-    """Vocaloid 2 .vsq：二进制——解析 VSQ 块提取演唱音符文本"""
+    """Vocaloid 2 .vsq：专有 Nch 块二进制——尽力提取可打印文本片段（过滤纯数字/符号噪声）"""
     if data[:2] != b"VST" and data[:2] != b"VSQ":
         return "非标准 VSQ 文件（应为 VST/VSQ 二进制头）"
     out = []
@@ -66,65 +66,139 @@ def extract_vsq(data):
         while j < n and 0x20 <= data[j] < 0x7F:
             buf.append(chr(data[j]))
             j += 1
-        if len(buf) >= 1:
+        if len(buf) >= 2:
             s = "".join(buf).strip()
-            if s and s.isascii() and not s.isdigit():
+            if s and s.isascii() and not s.isdigit() and not re.fullmatch(r"[\W_]+", s):
                 out.append(s)
             i = j
         else:
             i += 1
-    return "\n".join(out[:200]) if out else "未提取到文本（vsq 二进制无文本块）"
+    # 去重
+    seen = []
+    for s in out:
+        if s not in seen:
+            seen.append(s)
+    return "\n".join(seen[:200]) if seen else "未提取到文本（vsq 二进制无文本块）"
+
+
+def _json_find_lyrics(obj, out):
+    """递归遍历 JSON，收集所有 'lyric' 相关字符串（Synthesizer V / Vocaloid5 工程）"""
+    if isinstance(obj, dict):
+        if "lyric" in obj:
+            v = obj["lyric"]
+            if isinstance(v, dict):
+                v = v.get("value") or v.get("phrase") or v.get("text") or v.get("symbol")
+            if isinstance(v, str) and v.strip():
+                out.append(v.strip())
+        for val in obj.values():
+            _json_find_lyrics(val, out)
+    elif isinstance(obj, list):
+        for it in obj:
+            _json_find_lyrics(it, out)
+
+
+def _json_lyrics_from(text):
+    try:
+        obj = json.loads(text)
+    except Exception:
+        return None
+    out = []
+    _json_find_lyrics(obj, out)
+    return "\n".join(out) if out else None
 
 
 def extract_vpr(data):
-    """Vocaloid 5 .vpr：XML（含 <p name="lyric">）"""
+    """Vocaloid 5 .vpr：zip 容器内含 JSON 工程（VPR 本体是 JSON 文本）"""
+    if data[:2] == b"PK":
+        import zipfile
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(data))
+            for nm in zf.namelist():
+                if nm.lower().endswith((".json", ".vpr", ".xml")):
+                    text = _try_decode(zf.read(nm))
+                    r = _json_lyrics_from(text)
+                    if r:
+                        return r
+                    lyrics = []
+                    for m in re.finditer(r'<p[^>]*name="lyric"[^>]*>(.*?)</p>|<lyric[^>]*>(.*?)</lyric>', text, re.S):
+                        t = (m.group(1) or m.group(2) or "").strip()
+                        if t:
+                            lyrics.append(t)
+                    if lyrics:
+                        return "\n".join(lyrics)
+        except Exception:
+            pass
     return extract_vsqx(data)
 
 
 # ---------- Synthesizer V ----------
 def extract_svp(data):
-    """Synthesizer V .svp：XML，<lyric>..</lyric> 或 <p name="lyric">"""
-    xml = _try_decode(data)
-    lyrics = []
-    for m in re.finditer(r"<lyric[^>]*>(.*?)</lyric>|<p[^>]*name=\"lyric\"[^>]*>(.*?)</p>", xml, re.S):
-        t = (m.group(1) or m.group(2) or "").strip()
-        if t:
-            lyrics.append(t)
-    # s5p 是 zip 容器：解包后找 .s5p/.project
-    if not lyrics and data[:2] == b"PK":
+    """Synthesizer V .svp：JSON 工程；.s5p 是 zip 容器内含 JSON/XML"""
+    # 1) 直接当 JSON 文本解析（svp 本体是 JSON）
+    r = _json_lyrics_from(_try_decode(data))
+    if r:
+        return r
+    # 2) zip 容器（s5p 等）解包后找 JSON/XML
+    if data[:2] == b"PK":
         import zipfile
         try:
             zf = zipfile.ZipFile(io.BytesIO(data))
             for nm in zf.namelist():
-                if nm.endswith((".s5p", ".project", ".svp", ".xml")):
-                    sub = zf.read(nm)
-                    xml = _try_decode(sub)
+                if nm.lower().endswith((".json", ".s5p", ".svp", ".project", ".xml")):
+                    st = _try_decode(zf.read(nm))
+                    r = _json_lyrics_from(st)
+                    if r:
+                        return r
+                    lyrics = []
+                    for m in re.finditer(r"<lyric[^>]*>(.*?)</lyric>|<p[^>]*name=\"lyric\"[^>]*>(.*?)</p>", st, re.S):
+                        t = (m.group(1) or m.group(2) or "").strip()
+                        if t:
+                            lyrics.append(t)
+                    if lyrics:
+                        return "\n".join(lyrics)
+        except Exception:
+            pass
+    # 3) 兜底：旧 XML 变体
+    return extract_vsqx(data)
+
+
+# ---------- DeepVocal / CeVIO ----------
+def extract_dv(data):
+    """DeepVocal .dv：专有 zlib 压缩二进制块（非 XML）。尽力解压扫描，否则仅识别"""
+    try:
+        dec = zlib.decompress(data)
+        text = _try_decode(dec)
+        lyrics = []
+        for m in re.finditer(r"<p[^>]*name=\"lyric\"[^>]*>(.*?)</p>|<lyric[^>]*>(.*?)</lyric>", text, re.S):
+            t = (m.group(1) or m.group(2) or "").strip()
+            if t:
+                lyrics.append(t)
+        if lyrics:
+            return "\n".join(lyrics)
+    except Exception:
+        pass
+    return "DeepVocal .dv 为专有二进制工程（zlib 压缩），浏览器内暂仅识别、未解析歌词"
+
+
+def extract_ccs(data):
+    """CeVIO .ccs/.ccsi：zip 容器内含 XML 工程（旧 ccs 本体即 XML）"""
+    if data[:2] == b"PK":
+        import zipfile
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(data))
+            for nm in zf.namelist():
+                if nm.lower().endswith((".xml", ".ccs", ".ccsi", ".project")):
+                    xml = _try_decode(zf.read(nm))
+                    lyrics = []
                     for m in re.finditer(r"<lyric[^>]*>(.*?)</lyric>|<p[^>]*name=\"lyric\"[^>]*>(.*?)</p>", xml, re.S):
                         t = (m.group(1) or m.group(2) or "").strip()
                         if t:
                             lyrics.append(t)
                     if lyrics:
-                        break
+                        return "\n".join(lyrics)
         except Exception:
             pass
-    return "\n".join(lyrics) if lyrics else "未找到歌词（Synthesizer V 工程无 lyric 节点）"
-
-
-# ---------- DeepVocal / CeVIO ----------
-def extract_dv(data):
-    """DeepVocal .dv：XML <p name="lyric">"""
     return extract_vsqx(data)
-
-
-def extract_ccs(data):
-    """CeVIO .ccs：XML <p name="lyric"> 或 <lyric>"""
-    xml = _try_decode(data)
-    lyrics = []
-    for m in re.finditer(r"<lyric[^>]*>(.*?)</lyric>|<p[^>]*name=\"lyric\"[^>]*>(.*?)</p>", xml, re.S):
-        t = (m.group(1) or m.group(2) or "").strip()
-        if t:
-            lyrics.append(t)
-    return "\n".join(lyrics) if lyrics else "未找到歌词（CeVIO 工程无 lyric 节点）"
 
 
 # ---------- MIDI ----------

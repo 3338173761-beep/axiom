@@ -99,12 +99,9 @@ const AxiomEngines = (function () {
 
   // 注入引擎脚本（fetch 本地 py/*.py → FS /axiom/py/）
   async function loadEngineScripts(p, scriptNames) {
+    try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      try {
-        p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py");
-      } catch (e) {}
-      try { p.FS.mkdir("/axiom/py"); } catch (e) {}
       const resp = await fetch(`${PY_BASE}${name}.py?v=7`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
@@ -769,7 +766,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.bin','rb').read()\n"
       + "out = media_meta.parse_media(data, '/axiom/input.bin')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return { ok: true, source: "meta", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "media" };
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   const pdfDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["pdf_parse"]);
@@ -779,7 +776,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.pdf','rb').read()\n"
       + "out = pdf_parse.parse_pdf(data)\n"
       + "out if out is not None else 'NO_PARSE'");
-    return { ok: true, source: "pdf", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "pdf" };
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   const sqliteDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["sqlite_dump"]);
@@ -791,7 +788,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.db','rb').read()\n"
       + "out = sqlite_dump.dump_sqlite(data)\n"
       + "out if out is not None else 'NO_PARSE'");
-    return { ok: true, source: "sqlite", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "sqlite" };
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   const isoDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["iso_tools"]);
@@ -801,7 +798,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.iso','rb').read()\n"
       + "out = iso_tools.parse_iso(data)\n"
       + "out if out is not None else 'NO_PARSE'");
-    return { ok: true, source: "iso", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "iso" };
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
 
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });

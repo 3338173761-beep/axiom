@@ -468,8 +468,9 @@
     });
   }, 800);
 
-  // ---------- 自动化端到端测试钩子（#autotest 触发，生产用户不触发则无副作用） ----------
-  if (location.hash === "#autotest") {
+  // ---------- 自动化端到端测试钩子（仅本地 127.0.0.1/localhost 触发，线上不激活） ----------
+  const isLocal = location.hostname === "127.0.0.1" || location.hostname === "localhost";
+  if (isLocal && location.hash === "#autotest") {
     (async function autoTest() {
       const post = (body) => fetch("http://127.0.0.1:8788/result", { method: "POST", body: body }).catch(() => {});
       try {

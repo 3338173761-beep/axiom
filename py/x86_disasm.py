@@ -363,8 +363,7 @@ class X86Decoder:
             v, pos = self.imm(data, pos + 1, 4)
             sel, pos = self.imm(data, pos, 2)
             return ("lcall" if b == 0x9A else "ljmp"), "0x%x:%d" % (sel, v), pos
-        if b == 0x0F:
-            pass  # 已在上方处理
+        # 0x0F 前缀已在上方 decode_0f 处理
         # 未知指令
         return None, None, pos + 1
 

@@ -10,7 +10,9 @@ const AxiomFormats = (function () {
   // 已有完整引擎的格式（直接路由到现有引擎）
   const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
     dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
-    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", sys: "dotnet",
+    // exe/dll 走 dotnet 引擎（peDecode 自动分流 .NET CLR / 原生 PE）；无 PE 头的原生二进制直接指 bin
+    exe: "dotnet", dll: "dotnet",
+    so: "bin", elf: "bin", o: "bin", bin: "bin", wasm: "bin", sys: "bin",
     // 新引擎：PDF / SQLite / ISO / 媒体-字体-容器元数据（msi 为 OLE 复合文档，不再误映射 dotnet）
     pdf: "pdf", sqlite: "sqlite", db: "sqlite", iso: "iso",
     wav: "media", png: "media", jpg: "media", jpeg: "media", gif: "media",
@@ -145,6 +147,13 @@ const AxiomFormats = (function () {
       desc: "PE/ELF/Mach-O 可执行文件。.NET 程序集走 dnfile+dncil（CIL），原生二进制走 capstone 汇编。",
       icon: "▮",
     },
+    bin: {
+      id: "bin", label: "原生二进制（非 PE）", ext: ".so / .elf / .o / .bin / .wasm", engine: "bin",
+      canTranslate: false,
+      badge: { ch: "B", color: "#94a3b8" },
+      desc: "无 PE 头的原生二进制（ELF/SO/O/BIN/WASM）。capstone 优先，浏览器内自研 x86 解码器回退。",
+      icon: "▮",
+    },
     unknown: {
       id: "unknown", label: "未知格式", ext: "?", engine: "none",
       canTranslate: false,
@@ -206,8 +215,13 @@ const AxiomFormats = (function () {
     let id = null;
     let tableHit = null;
 
-    // 魔数优先
-    if (startsWith(head, MAGIC.dex[0])) id = "dex";
+    // 魔数优先（先处理双义扩展名的魔数细分：raw/ace/nsf/ts/3ds，见 window.AXIOM_AMBIGUOUS）
+    if (ext === "ts" && startsWith(head, [0x47])) id = "generic";                 // MPEG-TS 同步字节
+    else if (ext === "ace" && startsWith(head, [0x45, 0x41, 0x43, 0x45])) id = "archive"; // "EACE" ACE 归档
+    else if (ext === "nsf" && startsWith(head, [0x4e, 0x45, 0x53, 0x4d, 0x1a])) id = "generic"; // "NESM\x1a"
+    else if (ext === "3ds" && startsWith(head, [0x4d, 0x4d, 0x00, 0x0a])) id = "generic"; // 3DS ROM "MM\0\n"
+    else if (ext === "raw" && startsWith(head, [0x52, 0x49, 0x46, 0x46])) id = "media"; // RIFF→WAV 容器
+    else if (startsWith(head, MAGIC.dex[0])) id = "dex";
     else if (startsWith(head, MAGIC.class[0])) id = "jar";           // class 归入 jar 组
     else if (startsWith(head, MAGIC.rpa[0])) id = "rpa";
     else if (startsWith(head, MAGIC["7z"][0])) id = "7z";
@@ -219,8 +233,8 @@ const AxiomFormats = (function () {
     else if (startsWith(head, MAGIC.lz4[0])) id = "lz4";
     else if (startsWith(head, MAGIC.ar[0])) id = "ar";
     else if (MAGIC.cpio.some(m => startsWith(head, m))) id = "cpio";
-    else if (startsWith(head, MAGIC.elf[0])) id = "binary";
-    else if (startsWith(head, MAGIC.pe[0])) id = "binary";
+    else if (startsWith(head, MAGIC.elf[0])) id = "bin";             // ELF → 原生二进制引擎（非 PE）
+    else if (startsWith(head, MAGIC.pe[0])) id = "binary";           // MZ → dotnet 引擎内部分流
     else if (startsWith(head, MAGIC.zip[0])) {
       // zip 容器分流：apk/jar/docx/xlsx/普通 zip → 各自引擎
       if (ext === "apk" || ext === "aab" || ext === "xapk") id = "apk";
@@ -262,7 +276,8 @@ const AxiomFormats = (function () {
       else if (ext === "7z") id = "7z";
       else if (ext === "rar") id = "rar";
       else if (KNOWN_ENGINE[ext] && KNOWN_ENGINE[ext] === "archive") id = ext;
-      else if (ext === "exe" || ext === "dll" || ext === "so" || ext === "elf" || ext === "o" || ext === "bin") id = "binary";
+      else if (ext === "exe" || ext === "dll") id = "binary";
+      else if (ext === "so" || ext === "elf" || ext === "o" || ext === "bin" || ext === "wasm") id = "bin";
       else id = "unknown";
     }
 
