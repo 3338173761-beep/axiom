@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Axiom · 多格式自动反编译器</title>
-<link rel="stylesheet" href="css/style-7.css?v=41">
+<link rel="stylesheet" href="css/style-7.css?v=42">
 </head>
 <body>
 
@@ -77,6 +77,24 @@
       <span class="dot" id="runtimeDot"></span>
       <span id="runtimeText">引擎未加载</span>
     </div>
+    <!-- Music synthesis toggle: lives in the topbar, next to the engine badge.
+         Lazy AudioContext; state persisted in localStorage. -->
+    <div class="audio-ctl">
+      <button id="audioToggle" class="audio-toggle" type="button"
+              aria-label="背景音乐" aria-pressed="true" title="背景音乐 (M)">
+        <svg class="ico ico-on" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M11 5 6.5 9H3v6h3.5L11 19V5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M15 9.5a4 4 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M17.5 7a7.5 7.5 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg class="ico ico-off" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M11 5 6.5 9H3v6h3.5L11 19V5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <line x1="15" y1="9" x2="21" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="21" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="audio-toggle__label">MUSIC</span>
+      </button>
+    </div>
     <div class="hud-reads" id="hudReads" aria-hidden="true">
       <span class="hud-read"><i>FPS</i><b id="hudFps">--</b></span>
       <span class="hud-read"><i>FREQ</i><b id="hudFreq">3.9GHz</b></span>
@@ -90,7 +108,7 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-kicker" aria-hidden="true">
-      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.8.19 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
+      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.8.20 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
     </div>
     <h1 class="hero-title">把编译过的脚本，<em>还原成源码</em></h1>
     <p class="hero-sub">rpyc · rpa · pyc · apk · dex · jar —— 拖进来，引擎在浏览器内本地运行，文件不上传</p>
@@ -243,11 +261,13 @@
   <span class="swap-btn__label">超频协议</span>
 </button>
 
-<script src="js/format-data.js?v=25"></script>
-<script src="js/format.js?v=25"></script>
-<script src="js/engines.js?v=25"></script>
-<script src="js/translate.js?v=25"></script>
-<script src="js/theme-7.js?v=41"></script>
-<script src="js/app.js?v=25"></script>
+<script src="js/format-data.js?v=26"></script>
+<script src="js/format.js?v=26"></script>
+<script src="js/engines.js?v=26"></script>
+<script src="js/translate.js?v=26"></script>
+<script src="js/theme-7.js?v=42"></script>
+<script src="js/music.js?v=27"></script>
+<script src="js/audio-toggle.js?v=27"></script>
+<script src="js/app.js?v=26"></script>
 </body>
 </html>

@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.19',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.20',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -536,6 +536,9 @@
       rain.start();
       state.active = true;
       state.entering = false;
+      // Audio: switch the groove to overclock form (also handled by sting cue +6s).
+      var m = window.__axiomMusic;
+      if (m && m.sequencer) m.sequencer.setForm(2);
       var btn = $('swapBtn');
       if (btn) {
         btn.classList.remove('m-open', 'm-out', 'm-hide');
@@ -599,7 +602,17 @@
     },
     close: function (ok) {
       if (this.el) this.el.hidden = true;
-      if (ok) enterNeon();
+      if (ok) {
+        // Audio: schedule the ~6s overclock sting on the audio clock.
+        // warnOk click IS the user gesture, so resume() is always allowed here.
+        var a = window.__axiomAudio;
+        var m = window.__axiomMusic;
+        if (a && a.ctx && m && m.sting) {
+          if (a.ctx.state === 'suspended') a.ctx.resume().catch(function () {});
+          m.sting.enter(a.ctx.currentTime);
+        }
+        enterNeon();
+      }
     }
   };
 
@@ -647,6 +660,10 @@
     if (!state.active || state.entering || state.exiting) return;
     state.exiting = true;
     lockScroll();
+    // Audio: schedule the ~1.4s exit sting on the audio clock.
+    var a = window.__axiomAudio;
+    var m = window.__axiomMusic;
+    if (a && a.ctx && m && m.sting) m.sting.exit(a.ctx.currentTime);
     // 先恢复中文（原版 UI）
     i18n.restore();
     var btn = $('swapBtn');

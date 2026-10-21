@@ -1276,3 +1276,61 @@ html[data-env="mobile"] .live-term { display: none !important; }
   75% { transform: translate(-1px,2px) skewX(0); }
   100% { transform: translate(0,0) skewX(0); }
 }
+
+/* ============ code-synthesized music: user toggle ============ */
+.audio-ctl { display: flex; align-items: center; }
+.audio-toggle {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 30px; padding: 0 12px; margin-left: 10px;
+  background: var(--card);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 999px;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  transition: box-shadow .2s, border-color .2s, color .2s, opacity .2s, transform .08s;
+  user-select: none; -webkit-user-select: none;
+}
+.audio-toggle .ico-off { display: none; }
+.audio-toggle .ico { flex: none; }
+.audio-toggle__label { white-space: nowrap; }
+.audio-toggle:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+}
+.audio-toggle:active { transform: scale(0.94); }
+.audio-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent), 0 0 14px rgba(34, 211, 238, 0.35);
+}
+.audio-toggle.is-muted {
+  color: var(--text-faint);
+  border-color: var(--line);
+  box-shadow: none; opacity: .75;
+}
+.audio-toggle.is-muted .ico-on { display: none; }
+.audio-toggle.is-muted .ico-off { display: block; }
+/* overclock theme: neon green/cyan pair, matches swap-btn language */
+:root[data-theme="overclock"] .audio-toggle {
+  border-color: rgba(0, 255, 136, 0.4);
+  color: var(--cyber-primary);
+  background: var(--cyber-surface);
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  border-radius: 0;
+}
+:root[data-theme="overclock"] .audio-toggle:hover {
+  border-color: var(--cyber-primary);
+  box-shadow: 0 0 16px rgba(0, 255, 136, .4), inset 0 0 10px rgba(0, 212, 255, .08);
+}
+:root[data-theme="overclock"] .audio-toggle:focus-visible {
+  box-shadow: 0 0 0 2px var(--cyber-cyan), 0 0 16px rgba(0, 255, 136, .4);
+}
+:root[data-theme="overclock"] .audio-toggle.is-muted {
+  color: var(--cyber-text-faint);
+  border-color: var(--cyber-border);
+}
+@media (max-width: 900px) {
+  .audio-toggle { padding: 0 9px; }
+  .audio-toggle__label { display: none; }
+}

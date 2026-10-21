@@ -157,6 +157,14 @@
     if (e.dataTransfer.files && e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
   });
 
+  // ---------- Cyberpunk-style UI sfx: every button clicks (2077 vibe) ----------
+  // The MUSIC toggle plays its own dedicated mute sound, so it is excluded.
+  document.querySelectorAll("button").forEach(function (b) {
+    if (b.id === "audioToggle") return;
+    b.addEventListener("click", function () { if (window.__axiomSfx) window.__axiomSfx.click(); });
+    b.addEventListener("mouseenter", function () { if (window.__axiomSfx) window.__axiomSfx.hover(); });
+  });
+
   async function handleFiles(files) {
     const file = files[0];
     if (!file) return;
