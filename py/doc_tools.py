@@ -572,6 +572,28 @@ def extract_pages(data):
     return r
 
 
+def parse_ppt_ole(data):
+    """老版 PowerPoint（.ppt/.pps）：OLE 复合文档 + PowerPoint 流探测"""
+    if data[:8] != b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        return None
+    out = ["PowerPoint 演示（OLE 复合文档，97-2003 二进制）"]
+    r = extract_ole(data)
+    if r:
+        out.append("包结构: " + r[:200])
+    low = data.lower()
+    ppt_mark = b"PowerPoint Document" in low or b"PowerPoint 8.0" in low
+    if ppt_mark:
+        out.append("探测: PowerPoint Document 流存在")
+    txt = data.decode("latin1", "replace")
+    import re as _re
+    texts = _re.findall(rb"[\x20-\x7e]{6,}", data)
+    words = [w.decode("latin1") for w in texts if b"\x00" not in w][:10]
+    if words:
+        out.append("可读串: " + " | ".join(words)[:160])
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def extract_document(data, name):
     lower = name.lower()
     if lower.endswith((".docx", ".docm", ".dotx", ".dotm")):
@@ -584,6 +606,11 @@ def extract_document(data, name):
         return extract_xlsx(data)
     if lower.endswith((".pptx", ".pptm", ".potx")):
         return extract_pptx(data)
+    if lower.endswith((".ppt", ".pps")):
+        r = parse_ppt_ole(data)
+        if r:
+            return r
+        return "PowerPoint 演示（二进制，仅识别）；大小 %d B" % len(data)
     if lower.endswith((".odt", ".ott", ".odm", ".ods", ".ots", ".odp", ".otp")):
         kind = lower.rsplit(".", 1)[-1]
         return extract_odt(data, kind)

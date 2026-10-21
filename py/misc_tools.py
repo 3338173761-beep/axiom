@@ -498,6 +498,44 @@ def parse_rpm(data):
     return "\n".join(out)
 
 
+def parse_probe(data, label):
+    """通用内容探测：头 hex + 容器魔数 + 可打印比例 + 可读字符串"""
+    if len(data) < 16:
+        return None
+    out = ["%s（内容探测）" % label]
+    out.append("头: " + " ".join("%02X" % b for b in data[:8]))
+    if data[:2] == b"PK":
+        out.append("容器: ZIP")
+    elif data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        out.append("容器: OLE 复合文档")
+    elif data[:4] == b"RIFF":
+        out.append("容器: RIFF")
+    elif data[:2] in (b"MZ",):
+        out.append("容器: DOS/PE 可执行")
+    elif data[:4] == b"\x7fELF":
+        out.append("容器: ELF 可执行")
+    txt = data[:4096]
+    printable = sum(32 <= b < 127 or b in (9, 10, 13) for b in txt)
+    if txt:
+        out.append("前 4KB 可打印比例: %.0f%%" % (printable * 100 / len(txt)))
+    if printable > 0:
+        texts = __import__("re").findall(rb"[\x20-\x7e]{6,}", txt)
+        words = [w.decode("latin1") for w in texts][:8]
+        if words:
+            out.append("可读文本: " + " ".join(words)[:140])
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_prt(data):
+    """CAD 零件（.prt）：Pro/ENGINEER 文本版本头探测 / 内容探测兜底"""
+    text = data[:512].decode("latin1", "replace")
+    head = text.strip().splitlines()[0] if text.strip() else ""
+    if "PRO/ENGINEER" in head.upper() or "PROE" in head.upper():
+        return "CAD 零件（Pro/ENGINEER）\n版本串: %s\n文件大小: %d B" % (head[:80], len(data))
+    return parse_probe(data, "CAD 零件（prt）")
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -570,10 +608,20 @@ def parse_misc(data, filename):
         r = parse_rpm(data)
         if r:
             return r
+    if ext == "prt":
+        r = parse_prt(data)
+        if r:
+            return r
+    if ext in ("eep", "ldb", "lrf", "sav", "srm", "state"):
+        labels = {"eep": "EEPROM 数据", "ldb": "LevelDB 数据", "lrf": "Sony Reader 电子书",
+                  "sav": "游戏存档", "srm": "SRAM 存档", "state": "模拟器即时存档"}
+        r = parse_probe(data, labels.get(ext, "数据"))
+        if r:
+            return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
                    parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak,
-                   parse_img, parse_dat, parse_nwc, parse_rpm):
+                   parse_img, parse_dat, parse_nwc, parse_rpm, parse_prt):
         try:
             r = parser(data)
         except Exception:

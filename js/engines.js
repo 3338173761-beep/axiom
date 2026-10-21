@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=23`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=24`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -864,7 +864,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf/乐谱/版式 → 可翻译文本，浏览器内）",
     canTranslate: true,
     formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xls", "xlsx", "xlsm", "xltx", "xltm",
-      "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
+      "pptx", "pptm", "potx", "ppt", "pps", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
       "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5",
       "abw", "zabw", "fb2", "uot", "uos", "x3d", "sxw", "stw", "sxc", "stc",
       "uop", "sxi", "sti", "potm", "ppsm", "ppsx", "thmx", "xlam", "csproj",
@@ -1043,7 +1043,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
     formats: ["pdb", "prc", "pml"], decompile: ebookDecode });
   register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx/矢量/Unity/ART，浏览器内）", canTranslate: false,
-    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak", "img", "dat", "nwc", "rpm"], decompile: miscDecode });
+    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak", "img", "dat", "nwc", "rpm", "prt", "eep", "ldb", "lrf", "sav", "srm", "state"], decompile: miscDecode });
   register("vocal", { id: "vocal", label: "歌声合成工程引擎（vspx/xvsq/nep/vfp/vog/kfn + JSON 族 15 格式，浏览器内）", canTranslate: false,
     formats: ["vspx", "xvsq", "nep", "vfp", "vog", "kfn", "tlp", "tlpx", "tssln", "svp", "s5p",
       "ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp", "vxf",
@@ -1073,7 +1073,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   register("image", { id: "image", label: "TIFF/相机 RAW 头解析引擎（dng/cr2/nef/arw/orf/pef/rw2/srw，浏览器内）", canTranslate: false,
-    formats: ["dng", "cr2", "crw", "nef", "arw", "orf", "pef", "rw2", "srw", "tif", "tiff"], decompile: imageDecode });
+    formats: ["dng", "cr2", "crw", "nef", "arw", "orf", "pef", "rw2", "srw", "tif", "tiff", "raw"], decompile: imageDecode });
   // ---- v2.8.8 新引擎：video（视频容器头解析）----
   const videoDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["video_tools"]);

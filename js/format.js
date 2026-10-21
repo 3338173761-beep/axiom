@@ -103,6 +103,8 @@ const AxiomFormats = (function () {
     img: "misc", kaj: "lyric", nsf: "audio", sap: "audio",
     band: "daw", dat: "misc", nwc: "misc", rpm: "misc",
     "3ds": "rom", "3gp": "video", "3g2": "video", "3gpp": "video",
+    pps: "doc", ppt: "doc", raw: "image",
+    eep: "misc", ldb: "misc", lrf: "misc", prt: "misc", sav: "misc", srm: "misc", state: "misc",
     gp: "misc", gp3: "misc", gp4: "misc", gp5: "misc",
     z: "misc", pak: "misc",
     "7z": "sevenz", rar: "rar",
