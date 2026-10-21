@@ -10,7 +10,11 @@ const AxiomFormats = (function () {
   // 已有完整引擎的格式（直接路由到现有引擎）
   const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
     dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
-    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", msi: "dotnet", sys: "dotnet",
+    exe: "dotnet", dll: "dotnet", so: "dotnet", elf: "dotnet", o: "dotnet", bin: "dotnet", wasm: "dotnet", sys: "dotnet",
+    // 新引擎：PDF / SQLite / ISO / 媒体-字体-容器元数据（msi 为 OLE 复合文档，不再误映射 dotnet）
+    pdf: "pdf", sqlite: "sqlite", db: "sqlite", iso: "iso",
+    wav: "media", png: "media", jpg: "media", jpeg: "media", gif: "media",
+    psd: "media", ttf: "media", otf: "media", mobi: "media", msi: "media",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",

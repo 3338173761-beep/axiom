@@ -105,7 +105,7 @@ const AxiomEngines = (function () {
         p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py");
       } catch (e) {}
       try { p.FS.mkdir("/axiom/py"); } catch (e) {}
-      const resp = await fetch(`${PY_BASE}${name}.py`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=6`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -759,6 +759,55 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     decompile: textDecode,
     extractTextFromSource: extractTextSegments
   });
+
+  // ---- 新引擎：pdf / sqlite / iso / media（零依赖 Pyodide 标准库 + 自研 py 解析器）----
+  const metaDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["media_meta"]);
+    const n = await writeInput(p, "/axiom/input.bin", file);
+    onLog && onLog("meta: 解析媒体/字体/容器元数据 → media_meta.py");
+    const r = await p.runPythonAsync("import media_meta\n"
+      + "data = open('/axiom/input.bin','rb').read()\n"
+      + "out = media_meta.parse_media(data, '/axiom/input.bin')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return { ok: true, source: "meta", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "media" };
+  };
+  const pdfDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["pdf_parse"]);
+    const n = await writeInput(p, "/axiom/input.pdf", file);
+    onLog && onLog("pdf: trailer/xref/页数/元数据 + FlateDecode 文本流 → pdf_parse.py");
+    const r = await p.runPythonAsync("import pdf_parse\n"
+      + "data = open('/axiom/input.pdf','rb').read()\n"
+      + "out = pdf_parse.parse_pdf(data)\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return { ok: true, source: "pdf", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "pdf" };
+  };
+  const sqliteDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["sqlite_dump"]);
+    // Pyodide 发行版把 sqlite3 从标准库拆出，需显式加载 built-in 包
+    await p.loadPackage("sqlite3");
+    const n = await writeInput(p, "/axiom/input.db", file);
+    onLog && onLog("sqlite: 内置 sqlite3 → 表结构/行数/数据 dump");
+    const r = await p.runPythonAsync("import sqlite_dump\n"
+      + "data = open('/axiom/input.db','rb').read()\n"
+      + "out = sqlite_dump.dump_sqlite(data)\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return { ok: true, source: "sqlite", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "sqlite" };
+  };
+  const isoDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["iso_tools"]);
+    const n = await writeInput(p, "/axiom/input.iso", file);
+    onLog && onLog("iso: ISO9660 PVD 卷信息 + 目录树 → iso_tools.py");
+    const r = await p.runPythonAsync("import iso_tools\n"
+      + "data = open('/axiom/input.iso','rb').read()\n"
+      + "out = iso_tools.parse_iso(data)\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return { ok: true, source: "iso", text: String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, ""), engine: "iso" };
+  };
+
+  register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
+  register("sqlite", { id: "sqlite", label: "SQLite 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db"], decompile: sqliteDecode });
+  register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
+  register("media", { id: "media", label: "媒体/字体/容器元数据解析器（WAV/PNG/JPG/GIF/PSD/TTF/OTF/MOBI/MSI）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi"], decompile: metaDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

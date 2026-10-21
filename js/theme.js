@@ -71,50 +71,94 @@
       var el = t - this.t0;
       if (el > this.dur) { this.stop(); return; }
       var ctx = this.ctx, W = this.W, H = this.H;
-      ctx.fillStyle = 'rgba(2,3,8,0.22)';
+      ctx.fillStyle = 'rgba(2,3,8,0.30)';
       ctx.fillRect(0, 0, W, H);
-      var c1, c2;
-      if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; }
-      else { c1 = '0,255,136'; c2 = '255,77,94'; }
+      var c1, c2, c3;
+      if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; c3 = '255,255,255'; }
+      else { c1 = '0,255,136'; c2 = '255,77,94'; c3 = '209,247,255'; }
       var self = this;
-      // 1) 乱码字符风暴：多行随机字符，行间随机错位（条带撕裂感）
-      ctx.font = (14 + Math.random() * 22) + 'px "Share Tech Mono", monospace';
-      var rows = 18 + Math.floor(Math.random() * 12);
+      // 1) 乱码字符风暴：密度翻倍、字号更大、速度更快（条带撕裂感）
+      ctx.font = (16 + Math.random() * 26) + 'px "Share Tech Mono", monospace';
+      var rows = 34 + Math.floor(Math.random() * 20);
       for (var i = 0; i < rows; i++) {
         var y = Math.random() * H;
         var x = Math.random() * 60 - 30;
         var str = '';
-        var len = 8 + Math.floor(Math.random() * 30);
+        var len = 10 + Math.floor(Math.random() * 40);
         for (var j = 0; j < len; j++) str += this.CHARS[Math.floor(Math.random() * this.CHARS.length)];
-        var rgba = Math.random() < 0.5 ? c1 : c2;
-        ctx.fillStyle = 'rgba(' + rgba + ',' + (0.25 + Math.random() * 0.6) + ')';
+        var rgba = Math.random() < 0.45 ? c1 : (Math.random() < 0.5 ? c2 : c3);
+        ctx.fillStyle = 'rgba(' + rgba + ',' + (0.3 + Math.random() * 0.65) + ')';
         ctx.fillText(str, x, y);
       }
-      // 2) 彩色 glitch 块（红/青/绿小方块乱闪）
-      var blocks = 10 + Math.floor(Math.random() * 14);
+      // 2) 彩色 glitch 块：数量翻倍（红/青/绿/白 小方块乱闪）
+      var blocks = 22 + Math.floor(Math.random() * 26);
       for (var b = 0; b < blocks; b++) {
-        var bw = 4 + Math.random() * 60, bh = 2 + Math.random() * 16;
+        var bw = 4 + Math.random() * 80, bh = 2 + Math.random() * 20;
         var bx = Math.random() * W, by = Math.random() * H;
-        var bc = Math.random() < 0.5 ? c1 : (Math.random() < 0.5 ? c2 : '0,255,136');
-        ctx.fillStyle = 'rgba(' + bc + ',' + (0.15 + Math.random() * 0.4) + ')';
+        var bc = Math.random() < 0.5 ? c1 : (Math.random() < 0.5 ? c2 : (Math.random() < 0.5 ? '0,255,136' : '255,255,255'));
+        ctx.fillStyle = 'rgba(' + bc + ',' + (0.15 + Math.random() * 0.5) + ')';
         ctx.fillRect(bx, by, bw, bh);
       }
-      // 3) 白色扫描横线（偶尔）
-      if (Math.random() < 0.4) {
-        ctx.fillStyle = 'rgba(209,247,255,' + (0.3 + Math.random() * 0.5) + ')';
-        ctx.fillRect(0, Math.random() * H, W, 1 + Math.random() * 2);
+      // 3) 白色扫描横线：更频繁更亮
+      if (Math.random() < 0.65) {
+        ctx.fillStyle = 'rgba(209,247,255,' + (0.35 + Math.random() * 0.55) + ')';
+        ctx.fillRect(0, Math.random() * H, W, 1 + Math.random() * 3);
       }
-      // 4) 噪点像素
-      for (var p = 0; p < 220; p++) {
-        ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c2) + ',' + (0.2 + Math.random() * 0.5) + ')';
+      // 4) 噪点像素：密度翻倍 + 白色噪点（雪花）
+      for (var p = 0; p < 520; p++) {
+        var pc = Math.random() < 0.5 ? c1 : (Math.random() < 0.3 ? c3 : c2);
+        ctx.fillStyle = 'rgba(' + pc + ',' + (0.15 + Math.random() * 0.55) + ')';
         ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
       }
-      // 5) 大号错误撕裂字（红调时）
-      if (this.palette === 'red' && Math.random() < 0.25) {
-        ctx.font = (26 + Math.random() * 40) + 'px Orbitron, "Share Tech Mono", monospace';
-        ctx.fillStyle = 'rgba(255,77,94,' + (0.3 + Math.random() * 0.4) + ')';
-        ctx.fillText('ERR', Math.random() * W * 0.8, 30 + Math.random() * H * 0.8);
+      // 5) 大号错误撕裂字（红调时更频繁 + 双层错位）
+      if (this.palette === 'red' && Math.random() < 0.4) {
+        var tx = Math.random() * W * 0.8, ty = 30 + Math.random() * H * 0.8;
+        var fsz = 30 + Math.random() * 48;
+        var words = ['ERR', 'FATAL', 'SIGNAL', 'KERNEL', '0xDEAD', 'PANIC', 'CORRUPT'];
+        var wd = words[Math.floor(Math.random() * words.length)];
+        ctx.font = fsz + 'px Orbitron, "Share Tech Mono", monospace';
+        ctx.fillStyle = 'rgba(0,212,255,0.5)';
+        ctx.fillText(wd, tx + 4 + Math.random() * 8, ty + 4 + Math.random() * 8);
+        ctx.fillStyle = 'rgba(255,77,94,' + (0.5 + Math.random() * 0.45) + ')';
+        ctx.fillText(wd, tx, ty);
       }
+      // 6) RGB 通道分离叠影（3D 眼镜式红/青错位大字）
+      if (Math.random() < 0.5) {
+        var gx = Math.random() * W * 0.7, gy = Math.random() * H;
+        var gs = 24 + Math.random() * 36;
+        var gwd = this.CHARS[Math.floor(Math.random() * this.CHARS.length)] +
+                  this.CHARS[Math.floor(Math.random() * this.CHARS.length)] +
+                  this.CHARS[Math.floor(Math.random() * this.CHARS.length)];
+        ctx.font = gs + 'px "Share Tech Mono", monospace';
+        var off = 5 + Math.random() * 12;
+        ctx.fillStyle = 'rgba(' + c1 + ',0.55)';
+        ctx.fillText(gwd, gx + off, gy);
+        ctx.fillStyle = 'rgba(' + c2 + ',0.55)';
+        ctx.fillText(gwd, gx - off, gy);
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillText(gwd, gx, gy);
+      }
+      // 7) 水平撕裂带：整条横带错位偏移（画面被撕开）
+      var bands = 3 + Math.floor(Math.random() * 5);
+      for (var bd = 0; bd < bands; bd++) {
+        var by0 = Math.random() * H;
+        var bh0 = 6 + Math.random() * 34;
+        var shift = (Math.random() * 40 - 20) | 0;
+        var bdx = (Math.random() * W * 0.6) | 0;
+        var img = ctx.getImageData(0, by0, W, bh0);
+        ctx.fillStyle = 'rgba(2,3,8,0.85)';
+        ctx.fillRect(0, by0, W, bh0);
+        ctx.putImageData(img, bdx, by0);
+        // 撕裂边缘亮线
+        ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c3) + ',0.9)';
+        ctx.fillRect(0, by0 + bh0 - 1, W, 1);
+      }
+      // 8) 全屏滚动扫描线（正弦上下扫）
+      var sy = (Math.sin(t / 60) * 0.5 + 0.5) * H;
+      ctx.fillStyle = 'rgba(209,247,255,0.12)';
+      ctx.fillRect(0, sy - 26, W, 52);
+      ctx.fillStyle = 'rgba(209,247,255,0.5)';
+      ctx.fillRect(0, sy, W, 1);
       this.rafId = requestAnimationFrame(function (tt) { self.frame(tt); });
     },
     stop: function () {

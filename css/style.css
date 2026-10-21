@@ -1048,10 +1048,10 @@ body {
   :root[data-theme="overclock"] .scanlines { opacity: .04; }
   .cmd-inner { font-size: 13.5px; }
 
-  /* Bug3 终极加固：真机仍被裁 → 加宽 + 去 clip-path（裁剪嫌疑）+ border-box + nowrap */
-  .swap-btn { width: 158px; height: 38px; padding: 0 14px; box-sizing: border-box; clip-path: none; font-size: 13.5px; letter-spacing: 0; }
+  /* Bug3 终极修复：真机仍裁「议」→ 宽度自适应内容（auto）+ 最小宽度兜底 + 去 clip-path */
+  .swap-btn { width: auto; min-width: 158px; height: 38px; padding: 0 20px; box-sizing: border-box; clip-path: none; font-size: 13.5px; letter-spacing: 0; }
   .swap-btn__label { letter-spacing: 0; white-space: nowrap; overflow: visible; display: inline-block; }
-  .swap-btn.m-oc { width: 160px; height: 34px; font-size: 12px; }
+  .swap-btn.m-oc { width: auto; min-width: 168px; height: 34px; font-size: 12px; }
   .swap-btn.m-oc .oc-en { letter-spacing: .04em; }
 
   /* Bug2 修复：顶部警示条窄屏自动换行两行、居中、高度自适应不裁切 */
