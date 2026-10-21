@@ -59,6 +59,8 @@ const AxiomFormats = (function () {
     pdb: "ebook", prc: "ebook", pml: "ebook",
     // 杂项容器引擎
     lnk: "misc", torrent: "misc", cue: "misc", wotreplay: "misc", cdg: "misc", eps: "misc", plist: "misc", idx: "misc",
+    ai: "misc", emf: "misc", wmf: "misc", unity3d: "misc", bsa: "misc",
+    webm: "media", wmv: "audio", "3gp": "video", cr3: "video", raf: "image",
     // 歌声合成工程引擎
     vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
     // 归档补充（zip/tar 容器）

@@ -416,6 +416,11 @@ def parse_audio(data, filename):
                    parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape):
         try:
             r = parser(data, filename)
+        except TypeError:
+            try:
+                r = parser(data)
+            except Exception:
+                continue
         except Exception:
             continue
         if r is not None:

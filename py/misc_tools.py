@@ -227,6 +227,79 @@ def parse_idx(data):
     return "\n".join(out)
 
 
+# ---- v2.8.10 新增：矢量图 / 游戏资源包 ----
+def parse_ai(data):
+    if data[:4] != b"%PDF" and data[:2] != b"AI":
+        return None
+    out = ["Adobe Illustrator 矢量文件"]
+    if data[:4] == b"%PDF":
+        out.append("新版封装：PDF 流（含 AI 专有流）")
+        try:
+            head = data[:1 << 16].decode("latin1", "replace")
+            m = re.search(r"/Title\s*\(([^)]{1,60})\)", head)
+            if m:
+                out.append("标题: " + m.group(1))
+        except Exception:
+            pass
+    else:
+        out.append("旧版：AI 头 + PostScript")
+        try:
+            head = data[:1 << 15].decode("latin1", "replace")
+            m = re.search(r"%%Title:\s*([^\r\n]{1,60})", head)
+            if m:
+                out.append("标题: " + m.group(1).strip())
+        except Exception:
+            pass
+    return "\n".join(out)
+
+
+def parse_emf(data):
+    if len(data) < 88 or data[:4] != b"\x01\x00\x00\x00":
+        return None
+    if data[40:44] != b" EMF":
+        return None
+    ver = struct.unpack_from("<I", data, 44)[0]
+    recs = struct.unpack_from("<I", data, 52)[0]
+    out = ["Windows 增强图元（EMF）"]
+    out.append("EMF 版本: %d  记录数: %d" % (ver, recs))
+    r_x, r_y, r_w, r_h = struct.unpack_from("<iiii", data, 8)
+    out.append("边界: %d,%d → %dx%d" % (r_x, r_y, r_w, r_h))
+    return "\n".join(out)
+
+
+def parse_wmf(data):
+    if data[:4] == b"\xd7\xcd\xc6\x9a":
+        ver = struct.unpack_from("<H", data, 4)[0]
+        out = ["Windows 图元文件（WMF，Placeable）"]
+        out.append("WMF 版本: 0x%04X" % ver)
+        return "\n".join(out)
+    if data[:2] in (b"\x01\x00", b"\x02\x00"):
+        return "Windows 图元文件（WMF，标准头，版本 0x%04X）" % struct.unpack_from("<H", data, 0)[0]
+    return None
+
+
+def parse_unity3d(data):
+    if data[:7] != b"UnityFS":
+        return None
+    ver = data[7:].split(b"\x00")[0].decode("latin1", "replace") if b"\x00" in data[7:64] else "?"
+    out = ["Unity Web 资源包（UnityFS）"]
+    out.append("Unity 版本: " + (ver or "?"))
+    m = re.search(rb"m_FileName: ([^\x00]{1,80})", data[:1 << 16])
+    if m:
+        out.append("资产名: " + m.group(1).decode("utf-8", "replace"))
+    return "\n".join(out)
+
+
+def parse_bsa(data):
+    if data[:4] != b"BSA\x00":
+        return None
+    ver = struct.unpack_from("<I", data, 4)[0]
+    fo = struct.unpack_from("<I", data, 8)[0]
+    out = ["Bethesda 归档（BSA）"]
+    out.append("版本: %d  文件数: %d" % (ver, fo))
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -262,7 +335,13 @@ def parse_misc(data, filename):
         r = parse_idx(data)
         if r:
             return r
-    for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist):
+    if ext in ("ai", "emf", "wmf", "unity3d", "bsa"):
+        r = {"ai": parse_ai, "emf": parse_emf, "wmf": parse_wmf,
+             "unity3d": parse_unity3d, "bsa": parse_bsa}[ext](data)
+        if r:
+            return r
+    for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
+                   parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa):
         try:
             r = parser(data)
         except Exception:
