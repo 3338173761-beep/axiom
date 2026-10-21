@@ -120,6 +120,33 @@ def parse_kfn(data):
     return "\n".join(out)
 
 
+# ---- v2.8.11 新增：歌声合成 JSON 族（TuneLab/X Studio/ACE 等）----
+def parse_json_vocal(data, label):
+    """纯 JSON 歌声工程：递归提取 text/lyrics/name 字段"""
+    try:
+        obj = json.loads(data.decode("utf-8", "replace"))
+    except Exception:
+        return None
+    out = [label + "（JSON 工程）"]
+
+    def walk(o, depth=0):
+        if depth > 6:
+            return
+        if isinstance(o, dict):
+            for k, v in o.items():
+                if isinstance(v, (str, int, float)) and isinstance(v, str) and v.strip() and k.lower() in ("text", "lyrics", "name", "title", "phonemes", "note", "lyric"):
+                    out.append(k + ": " + v.strip()[:60])
+                elif isinstance(v, (dict, list)):
+                    walk(v, depth + 1)
+        elif isinstance(o, list):
+            for item in o[:8]:
+                walk(item, depth + 1)
+
+    walk(obj)
+    out.append("JSON 根键: " + ", ".join(list(obj.keys())[:8]) if isinstance(obj, dict) else "数组")
+    return "\n".join(out)
+
+
 def parse_vocal(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -145,6 +172,23 @@ def parse_vocal(data, filename):
             return r
     if ext == "kfn":
         r = parse_kfn(data)
+        if r:
+            return r
+    if ext in ("tlp", "tlpx", "tssln", "svp", "s5p"):
+        # 纯 JSON 或带 BOM 的 JSON
+        body = data.lstrip(b"\xef\xbb\xbf \t\r\n")
+        if body[:1] in (b"{", b"["):
+            r = parse_json_vocal(body, {"tlp": "TuneLab", "tlpx": "TuneLab Pro",
+                "tssln": "X Studio 3.0", "svp": "SynthV", "s5p": "Synthesizer V5"}[ext])
+            if r:
+                return r
+        if ext in ("svp", "s5p"):
+            return "该工程为 SynthV/SV5 格式：JSON 或封装容器，已按通用解析尝试；大小 %d B" % len(data)
+    if ext in ("ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp", "tssln"):
+        r = parse_zip_vocal(data, {"ais": "AISingers", "aisp": "AISingers Pro", "gj": "GJ 歌声",
+            "msq": "MSQ 工程", "sk": "Synthesizer K", "vvproj": "VocaloidVox", "y77": "Y77",
+            "mtp": "MT Project", "ppsf": "PPSF", "svip3": "SVIP3", "vcp": "VCP", "vsp": "VSP",
+            "tssln": "X Studio"}[ext])
         if r:
             return r
     # 魔数兜底：XML 家族 / zip 容器

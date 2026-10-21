@@ -63,6 +63,9 @@ const AxiomFormats = (function () {
     webm: "media", wmv: "audio", "3gp": "video", cr3: "video", raf: "image",
     // 歌声合成工程引擎
     vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
+    tlp: "vocal", tlpx: "vocal", tssln: "vocal", svp: "vocal", s5p: "vocal",
+    ais: "vocal", aisp: "vocal", gj: "vocal", msq: "vocal", sk: "vocal",
+    vvproj: "vocal", y77: "vocal", mtp: "vocal", ppsf: "vocal", svip3: "vocal", vcp: "vocal", vsp: "vocal",
     // 归档补充（zip/tar 容器）
     ipa: "archive", ustar: "archive",
     // 图像头（bmp/ico/cur/dds/tga/pcx/hdr 走 media）
