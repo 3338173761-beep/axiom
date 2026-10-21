@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=22`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=23`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1039,11 +1039,11 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT/FNT/PFB/WOFF2，浏览器内）", canTranslate: false,
     formats: ["woff", "ttc", "otc", "pfm", "eot", "fnt", "fon", "pfb", "woff2"], decompile: fontDecode });
   register("daw", { id: "daw", label: "DAW 工程引擎（Ableton Live als / LMMS mmpz / Audacity aup3，浏览器内）", canTranslate: false,
-    formats: ["als", "mmpz", "aup3"], decompile: dawDecode });
+    formats: ["als", "mmpz", "aup3", "band"], decompile: dawDecode });
   register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
     formats: ["pdb", "prc", "pml"], decompile: ebookDecode });
   register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx/矢量/Unity/ART，浏览器内）", canTranslate: false,
-    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak", "img"], decompile: miscDecode });
+    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak", "img", "dat", "nwc", "rpm"], decompile: miscDecode });
   register("vocal", { id: "vocal", label: "歌声合成工程引擎（vspx/xvsq/nep/vfp/vog/kfn + JSON 族 15 格式，浏览器内）", canTranslate: false,
     formats: ["vspx", "xvsq", "nep", "vfp", "vog", "kfn", "tlp", "tlpx", "tssln", "svp", "s5p",
       "ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp", "vxf",
@@ -1060,7 +1060,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（NES/GB/GBA/NDS/N64/SFC/FDS/CIA/WBFS/XCI/MDS，浏览器内）", canTranslate: false,
-    formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia", "wbfs", "xci", "mds"], decompile: romDecode });
+    formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia", "wbfs", "xci", "mds", "3ds"], decompile: romDecode });
   // ---- v2.8.7 新引擎：image（TIFF/相机 RAW 头解析）----
   const imageDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["image_tools"]);
@@ -1086,7 +1086,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   register("video", { id: "video", label: "视频容器头解析引擎（avi/mp4/mov/m4v/f4v/mpeg/m2ts，浏览器内）", canTranslate: false,
-    formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "ts", "mts"], decompile: videoDecode });
+    formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "ts", "mts", "3gp", "3g2", "3gpp"], decompile: videoDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

@@ -84,6 +84,25 @@ def parse_aup3(data):
     return "\n".join(out)
 
 
+def parse_band(data):
+    """GarageBand 工程（.band）：zip 容器列内部件 / 二进制头兜底"""
+    if data[:2] == b"PK":
+        import io as _io, zipfile as _zip
+        try:
+            zf = _zip.ZipFile(_io.BytesIO(data))
+            names = zf.namelist()
+            out = ["GarageBand 工程（zip 容器）"]
+            out.append("包内部件: %d" % len(names))
+            shown = [n for n in names if not n.endswith("/")][:12]
+            if shown:
+                out.append("文件: " + ", ".join(shown))
+            return "\n".join(out)
+        except Exception:
+            pass
+    return "GarageBand 工程（目录 bundle / 二进制，仅识别）；大小 %d B，头 %s" % (
+        len(data), " ".join("%02X" % b for b in data[:16]))
+
+
 def parse_daw(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -98,6 +117,18 @@ def parse_daw(data, filename):
     if ext == "aup3":
         r = parse_aup3(data)
         if r:
+            return r
+    if ext == "band":
+        r = parse_band(data)
+        if r:
+            return r
+    # 魔数兜底
+    for parser in (parse_als, parse_mmpz, parse_aup3, parse_band):
+        try:
+            r = parser(data)
+        except Exception:
+            continue
+        if r is not None:
             return r
     # 魔数兜底
     for parser in (parse_als, parse_mmpz, parse_aup3):

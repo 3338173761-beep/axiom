@@ -131,7 +131,7 @@ def parse_m2ts(data):
 def parse_video(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
-    if ext in ("mp4", "mov", "m4v", "f4v", "m4a"):
+    if ext in ("mp4", "mov", "m4v", "f4v", "m4a", "3gp", "3g2", "3gpp"):
         r = parse_mp4(data)
         if r:
             return r

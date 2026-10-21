@@ -432,6 +432,72 @@ def parse_img(data):
     return "\n".join(out)
 
 
+def parse_dat(data):
+    """通用游戏/应用数据（.dat）：内容探测（魔数/可打印比例/可读字符串）"""
+    if len(data) < 16:
+        return None
+    out = ["通用数据文件（dat）"]
+    magic = " ".join("%02X" % b for b in data[:8])
+    out.append("头: " + magic)
+    if data[:2] == b"PK":
+        out.append("容器: ZIP")
+    elif data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+        out.append("容器: OLE 复合文档")
+    elif data[:4] == b"RIFF":
+        out.append("容器: RIFF")
+    elif data[:3] == b"ID3":
+        out.append("容器: MP3 标签")
+    txt = data[:4096]
+    printable = sum(32 <= b < 127 or b in (9, 10, 13) for b in txt)
+    if txt:
+        ratio = printable / len(txt)
+        if ratio > 0.6:
+            try:
+                s = txt.decode("utf-8", "replace")
+                words = [w for w in s.split() if any(c.isalpha() for c in w)][:8]
+                if words:
+                    out.append("可读文本: " + " ".join(words)[:120])
+            except Exception:
+                pass
+        out.append("前 4KB 可打印比例: %.0f%%" % (ratio * 100))
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_nwc(data):
+    """NoteWorthy Composer 乐谱（.nwc）：文本行解析"""
+    if len(data) < 20:
+        return None
+    text = data.decode("latin1", "replace")
+    head = text[:32].upper()
+    if "NOTEWORTHY" not in head and "!NOTEWRITER" not in head:
+        return None
+    out = ["NoteWorthy Composer 乐谱"]
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    out.append("行数: %d" % len(lines))
+    shown = 0
+    for l in lines:
+        if l.startswith("|") or l.startswith("!"):
+            out.append("乐谱行: " + l[:80])
+            shown += 1
+            if shown >= 8:
+                break
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_rpm(data):
+    """Red Hat Package（.rpm）：ed ab ee db 魔数 + 版本 + 类型/架构"""
+    if len(data) < 16 or data[:4] != b"\xed\xab\xee\xdb":
+        return None
+    major, minor = data[4], data[5]
+    rtype, arch = data[6], data[7]
+    out = ["Red Hat Package（rpm）"]
+    out.append("版本: %d.%d  类型: %d  架构: %d" % (major, minor, rtype, arch))
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -492,10 +558,22 @@ def parse_misc(data, filename):
         r = parse_img(data)
         if r:
             return r
+    if ext == "dat":
+        r = parse_dat(data)
+        if r:
+            return r
+    if ext == "nwc":
+        r = parse_nwc(data)
+        if r:
+            return r
+    if ext == "rpm":
+        r = parse_rpm(data)
+        if r:
+            return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
                    parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak,
-                   parse_img):
+                   parse_img, parse_dat, parse_nwc, parse_rpm):
         try:
             r = parser(data)
         except Exception:

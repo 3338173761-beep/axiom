@@ -197,6 +197,17 @@ def parse_mds(data):
     return "\n".join(out)
 
 
+def parse_3ds(data):
+    """任天堂 3DS 卡带 ROM：NCSD 容器（0x100 处魔数）"""
+    if len(data) < 0x104:
+        return None
+    if data[0x100:0x104] != b"NCSD":
+        return None
+    out = ["任天堂 3DS ROM（NCSD 容器）"]
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_rom(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -238,6 +249,10 @@ def parse_rom(data, filename):
             return r
     if ext in ("wbfs", "xci", "mds"):
         r = {"wbfs": parse_wbfs, "xci": parse_xci, "mds": parse_mds}[ext](data)
+        if r:
+            return r
+    if ext == "3ds":
+        r = parse_3ds(data)
         if r:
             return r
     for parser in (parse_nes, parse_gb, parse_gba, parse_nds, parse_n64,
