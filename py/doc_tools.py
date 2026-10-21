@@ -103,6 +103,42 @@ def extract_pptx(data):
     return "\n".join(out) if out else "演示文稿中未提取到文本"
 
 
+def extract_zip_xml(data, lower):
+    """通用 zip + XML 容器：列包内文档并提取文本节点（sxw/stc/sxi/csproj/thmx 等）"""
+    zf = _read_zip(data)
+    names = zf.namelist()
+    out = ["压缩文档包（%s）" % lower.rsplit(".", 1)[-1]]
+    out.append("包内部件: %d" % len(names))
+    xml_docs = [n for n in names if n.lower().endswith((".xml", ".rels", ".fpage")) and not n.startswith("META-INF/") and "schemas" not in n.lower()]
+    shown = 0
+    for n in sorted(xml_docs)[:6]:
+        try:
+            xml = zf.read(n).decode("utf-8", "replace")
+        except Exception:
+            continue
+        texts = re.findall(r"<(?:t|text|w:t|p|td|th|title)[^>]*>([^<]{1,200})</", xml, re.I)
+        texts = [t.strip() for t in texts if t.strip()]
+        if texts:
+            out.append("--- %s（%d 文本）---" % (n, len(texts)))
+            out.append(" ".join(texts[:30])[:500])
+            shown += 1
+    if not shown:
+        # 兜底：全量剥离标签
+        for n in sorted(xml_docs)[:3]:
+            try:
+                xml = zf.read(n).decode("utf-8", "replace")
+            except Exception:
+                continue
+            txt = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", xml)).strip()
+            if txt:
+                out.append("--- %s ---" % n)
+                out.append(txt[:400])
+                shown += 1
+    if not shown:
+        out.append("（未提取到可见文本，仅容器结构）")
+    return "\n".join(out)
+
+
 def extract_odt(data, kind):
     zf = _read_zip(data)
     if "content.xml" not in zf.namelist():
@@ -434,6 +470,98 @@ def extract_json5(data):
     return "\n".join(["JSON5 数据", "根对象: " + brief(obj)[:800]])
 
 
+def extract_xml_text(data):
+    """通用 XML 文本提取：<t>/<text>/<w:t> 等文本节点（AbiWord/FictionBook/X3D/UOF/工程文件）"""
+    try:
+        xml = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if not xml.lstrip().startswith("<?xml") and "<html" not in xml[:200]:
+        return None
+    texts = re.findall(r"<(?:t|text|w:t|p|td|th)[^>]*>([^<]{1,200})</", xml, re.I)
+    texts = [t.strip() for t in texts if t.strip()]
+    out = ["XML 文本提取"]
+    if texts:
+        out.append("文本片段: %d" % len(texts))
+        out.append(" ".join(texts[:60])[:700])
+    else:
+        out.append("（未提取到文本节点，仅结构）")
+    return "\n".join(out)
+
+
+def extract_mhtml(data):
+    """MHTML：MIME 分隔 → HTML 正文 + 资源清单"""
+    try:
+        text = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if "--=_NextPart" not in text[:100000] and "\r\nMIME-Version:" not in text[:5000].upper() and "Content-Type: multipart" not in text[:5000].lower():
+        return None
+    parts = re.findall(r"Content-Type:\s*([^\r\n]+)[\s\S]*?Content-Transfer-Encoding:\s*(\S+)[\r\n]{2}([\s\S]*?)(?=\r\n--|$)", text, re.I)
+    out = ["MHTML 网页归档", "MIME 部件: %d" % len(parts)]
+    for i, (ct, enc, body) in enumerate(parts[:20]):
+        ct = ct.strip()
+        if "text/html" in ct:
+            html = body if enc.lower() == "8bit" or "quoted" not in enc.lower() else body.replace("=\r\n", "").replace("=3D", "=")
+            m = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+            if m:
+                out.append("HTML 标题: %s" % m.group(1).strip()[:80])
+            m = re.search(r"<body[^>]*>([\s\S]*?)</body>", html, re.I)
+            if m:
+                txt = re.sub(r"<[^>]+>", " ", m.group(1))
+                txt = re.sub(r"\s+", " ", txt).strip()
+                if txt:
+                    out.append("正文: " + txt[:400])
+        else:
+            out.append("部件 %d: %s (%d B)" % (i + 1, ct.split(";")[0], len(body)))
+    return "\n".join(out)
+
+
+def extract_dif(data):
+    """DIF 数据交换格式：-1,0 元数据表 + 数据表"""
+    try:
+        text = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if "TABLE" not in text[:2000].upper() and "-1,0" not in text[:500]:
+        return None
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    out = ["DIF 数据交换表格"]
+    in_data = False
+    rows = 0
+    for i, ln in enumerate(lines):
+        if ln == "-1,0":
+            if i + 1 < len(lines) and lines[i + 1].upper() == "DATA":
+                in_data = True
+                continue
+            if i + 1 < len(lines) and lines[i + 1].upper() == "EOD":
+                break
+        if in_data and ln.startswith("0,1"):
+            rows += 1
+    out.append("数据行: %d" % rows)
+    return "\n".join(out)
+
+
+def extract_slk(data):
+    """SYLK：ID;P 表头 + C;X/Y;K 单元格"""
+    try:
+        text = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if not text[:100].startswith("ID;P"):
+        return None
+    cells = 0
+    for ln in text.splitlines():
+        if ";K" in ln:
+            cells += 1
+    out = ["SYLK 电子表格（Symbolic Link）"]
+    out.append("单元格: %d" % cells)
+    for ln in text.splitlines()[:8]:
+        if ln.startswith("C;") and ";K" in ln:
+            out.append("  " + ln[:80])
+    return "\n".join(out)
+
+
 def extract_document(data, name):
     lower = name.lower()
     if lower.endswith((".docx", ".docm", ".dotx", ".dotm")):
@@ -457,6 +585,32 @@ def extract_document(data, name):
         return extract_xps(data)
     if lower.endswith(".json5"):
         return extract_json5(data)
+    # ---- v2.8.3 新增：XML 家族 / MHTML / DIF / SLK / 工程文件 ----
+    if lower.endswith((".abw", ".zabw", ".fb2", ".uot", ".uos", ".x3d")):
+        if lower.endswith(".zabw"):
+            try:
+                import gzip
+                data = gzip.decompress(data)
+            except Exception:
+                return "压缩 AbiWord 文档：gzip 解压失败"
+        r = extract_xml_text(data)
+        if r:
+            return r
+        return "该文档（%s）为 XML 格式但解析未命中文本节点" % lower
+    if lower.endswith((".sxw", ".stw", ".sxc", ".stc", ".uop", ".sxi", ".sti", ".potm", ".ppsm", ".ppsx", ".thmx", ".xlam", ".csproj", ".vcxproj")):
+        return extract_zip_xml(data, lower)
+    if lower.endswith((".mhtml", ".mht")):
+        r = extract_mhtml(data)
+        if r:
+            return r
+    if lower.endswith(".dif"):
+        r = extract_dif(data)
+        if r:
+            return r
+    if lower.endswith(".slk"):
+        r = extract_slk(data)
+        if r:
+            return r
     return "暂不支持该文档格式（%s）" % lower
 
 

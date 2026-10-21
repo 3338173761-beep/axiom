@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=8`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=9`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -865,7 +865,10 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     canTranslate: true,
     formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
       "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
-      "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5"],
+      "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5",
+      "abw", "zabw", "fb2", "uot", "uos", "x3d", "sxw", "stw", "sxc", "stc",
+      "uop", "sxi", "sti", "potm", "ppsm", "ppsx", "thmx", "xlam", "csproj",
+      "vcxproj", "mhtml", "mht", "dif", "slk"],
     decompile: docDecode,
     extractTextFromSource: extractTextSegments
   });
@@ -874,7 +877,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     id: "archive",
     label: "综合归档引擎（tar/zip/gz/bz2/xz/zst/br/lz4/uue/ar/cpio/deb，浏览器内）",
     canTranslate: false,
-    formats: ["tar", "tgz", "tbz2", "txz", "tzst", "zip", "gz", "bz2", "xz", "lzma", "zst", "br", "lz4", "uue", "ar", "cpio", "deb"],
+    formats: ["tar", "tgz", "tbz2", "txz", "tzst", "zip", "gz", "bz2", "xz", "lzma", "zst", "br", "lz4", "uue", "ar", "cpio", "deb",
+      "pk3", "pk4", "apks", "appx", "msix", "cbt", "cbz", "ibooks", "unitypackage"],
     decompile: archiveDecode
   });
 
@@ -946,12 +950,49 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
+  // ---- v2.8.3 新引擎：audio（追踪器/芯片音乐/MIDI）/ cad / font ----
+  const audioDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["audio_meta"]);
+    const n = await writeInput(p, "/axiom/input.aud", file);
+    onLog && onLog("audio: 追踪器/芯片音乐/MIDI 元数据 → audio_meta.py");
+    const r = await p.runPythonAsync("import audio_meta\n"
+      + "data = open('/axiom/input.aud','rb').read()\n"
+      + "out = audio_meta.parse_audio(data, '/axiom/input.aud')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  const cadDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["cad_tools"]);
+    const n = await writeInput(p, "/axiom/input.cad", file);
+    onLog && onLog("cad: DXF/IGES/SAT/STEP 文本实体 → cad_tools.py");
+    const r = await p.runPythonAsync("import cad_tools\n"
+      + "data = open('/axiom/input.cad','rb').read()\n"
+      + "out = cad_tools.parse_cad(data, '/axiom/input.cad')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  const fontDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["font_tools"]);
+    const n = await writeInput(p, "/axiom/input.fnt", file);
+    onLog && onLog("font: WOFF/TTC/OTC/PFM 字体容器 → font_tools.py");
+    const r = await p.runPythonAsync("import font_tools\n"
+      + "data = open('/axiom/input.fnt','rb').read()\n"
+      + "out = font_tools.parse_font(data, '/axiom/input.fnt')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
 
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
   register("sqlite", { id: "sqlite", label: "SQLite/dBase 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db", "dbf", "sqlite3", "sqlitedb"], decompile: sqliteDecode });
   register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
   register("media", { id: "media", label: "媒体/字体/容器元数据解析器（WAV/PNG/JPG/GIF/PSD/TTF/OTF/MOBI/MSI/SF2/MKV/FLV/SWF/VOC/AU/W64）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
     "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf"], decompile: metaDecode });
+  register("audio", { id: "audio", label: "音乐元数据引擎（追踪器 IT/MOD/S3M/XM、芯片音乐 VGM/VGZ/PSF、MIDI KAR/RMI/XMI，浏览器内）", canTranslate: false,
+    formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi"], decompile: audioDecode });
+  register("cad", { id: "cad", label: "CAD 文本实体引擎（DXF/IGES/SAT/STEP，浏览器内）", canTranslate: false,
+    formats: ["dxf", "iges", "igs", "sat", "step", "stp"], decompile: cadDecode });
+  register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT，浏览器内）", canTranslate: false,
+    formats: ["woff", "ttc", "otc", "pfm", "eot"], decompile: fontDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

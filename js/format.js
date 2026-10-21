@@ -28,8 +28,29 @@ const AxiomFormats = (function () {
     vpk: "game", wad: "game", ktx: "game", sketch: "game", kra: "game",
     // 3D 模型引擎
     obj: "model", stl: "model", ply: "model", gltf: "model", glb: "model", dae: "model", off: "model",
+    // CAD 文本实体引擎
+    dxf: "cad", iges: "cad", igs: "cad", sat: "cad", step: "cad", stp: "cad",
+    // 音乐元数据引擎（追踪器/芯片音乐/MIDI）
+    it: "audio", mod: "audio", s3m: "audio", xm: "audio", vgm: "audio", vgz: "audio", psf: "audio",
+    kar: "audio", rmi: "audio", xmi: "audio",
+    // 字体容器引擎
+    woff: "font", ttc: "font", otc: "font", pfm: "font", eot: "font",
+    // PE/ELF/Mach-O 族（peDecode 自动分流 CLR/原生；ELF/Mach-O 走 bin）
+    pyd: "dotnet", drv: "dotnet", efi: "dotnet", ocx: "dotnet", scr: "dotnet", xll: "dotnet",
+    ko: "bin", dylib: "bin", bundle: "bin",
+    // zip/tar 容器复用归档引擎
+    pk3: "archive", pk4: "archive", apks: "archive", appx: "archive", msix: "archive",
+    cbt: "archive", cbz: "archive", ibooks: "archive", unitypackage: "archive",
+    // JSON 直读（可翻译）→ text 引擎
+    gdoc: "text", gsheet: "text", gslides: "text", gj: "text", msq: "text", tlp: "text",
+    vvproj: "text", y77: "text", ais: "text", aisp: "text", sln: "text",
     // 乐谱 / 版式 / 数据 → 文档引擎
     mscz: "doc", mscx: "doc", musx: "doc", musicxml: "doc", xps: "doc", oxps: "doc", json5: "doc",
+    // 文档引擎扩展（XML 家族/工程/表格交换）
+    abw: "doc", zabw: "doc", fb2: "doc", uot: "doc", uos: "doc", x3d: "doc",
+    sxw: "doc", stw: "doc", sxc: "doc", stc: "doc", uop: "doc", sxi: "doc", sti: "doc",
+    potm: "doc", ppsm: "doc", ppsx: "doc", thmx: "doc", xlam: "doc", csproj: "doc", vcxproj: "doc",
+    mhtml: "doc", mht: "doc", dif: "doc", slk: "doc",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
