@@ -62,8 +62,10 @@ def parse_gb(data):
 
 
 def parse_gba(data):
-    # GBA 头：0xAC 处 gamecode / 0xA0 处标题（12B）
-    if data[:4] != b"\x00\x00\x00\x00":
+    # GBA 头：0xAC 处 gamecode / 0xA0 处标题（12B）/ 0xB2 固定 0x96
+    if len(data) < 0xB4:
+        return None
+    if data[0xB2] != 0x96:
         return None
     title = _clean(data[0xA0:0xAC])
     if not title:

@@ -139,6 +139,7 @@ class X86Decoder:
         pos = ip
         rex = 0
         opsz = 1  # 1=32/64位, 0=16位
+        f3 = False
         addr64 = (self.mode == 64)
         # 前缀循环
         while pos < len(data):
@@ -149,7 +150,10 @@ class X86Decoder:
             elif b == 0x66:
                 opsz = 0
                 pos += 1
-            elif b in (0x67, 0xF0, 0xF2, 0xF3, 0x2E, 0x3E, 0x26, 0x36, 0x64, 0x65):
+            elif b == 0xF3:
+                f3 = True
+                pos += 1
+            elif b in (0x67, 0xF0, 0xF2, 0x2E, 0x3E, 0x26, 0x36, 0x64, 0x65):
                 pos += 1
             else:
                 break
@@ -222,13 +226,13 @@ class X86Decoder:
             rel, pos = self.rel(data, pos + 1, 1)
             return cc, "0x%x" % (pos + rel), pos
         if b == 0x0F:
-            return self.decode_0f(data, pos + 1, rex, opsz, addr64, ip)
+            return self.decode_0f(data, pos + 1, rex, opsz, addr64, ip, f3)
         if 0xB0 <= b <= 0xB7:
             v, pos = self.imm(data, pos + 1, 1)
             return "mov", "%s, %d" % (self.reg8(rex, b - 0xB0), v), pos
         if 0xB8 <= b <= 0xBF:
             r = b - 0xB8
-            if self.mode == 64 and not (rex & 0x8):
+            if self.mode == 64 and (rex & 0x8):
                 v, pos = self.imm(data, pos + 1, 8)
                 return "mov", "%s, %d" % (self.reg64(rex, r), v), pos
             if opsz == 0:
@@ -367,7 +371,7 @@ class X86Decoder:
         # 未知指令
         return None, None, pos + 1
 
-    def decode_0f(self, data, pos, rex, opsz, addr64, ip):
+    def decode_0f(self, data, pos, rex, opsz, addr64, ip, f3=False):
         if pos >= len(data):
             return "db", "0x%02x" % data[ip], ip + 1
         b = data[pos]
@@ -385,8 +389,11 @@ class X86Decoder:
         if b == 0x1F:
             # NOP（多字节）
             return "nop", "", pos + 1
-        if 0x90 <= b <= 0x9F and b in (0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97):
-            return "nop", "", pos + 1
+        if 0x90 <= b <= 0x9F:
+            cc = ["seto", "setno", "setb", "setae", "sete", "setne", "setbe", "seta",
+                  "sets", "setns", "setp", "setnp", "setl", "setge", "setle", "setg"][b - 0x90]
+            rm_op, pos = self.decode_modrm(data, pos + 1, rex, 0, addr64)
+            return cc, rm_op, pos
         if 0x40 <= b <= 0x4F:
             cc = ["cmovo", "cmovno", "cmovb", "cmovae", "cmove", "cmovne", "cmovbe", "cmova",
                   "cmovs", "cmovns", "cmovp", "cmovnp", "cmovl", "cmovge", "cmovle", "cmovg"][b - 0x40]
@@ -394,11 +401,6 @@ class X86Decoder:
             reg = (modrm >> 3) & 7
             rm_op, pos = self.decode_modrm(data, pos + 1, rex, 1, addr64)
             return cc, "%s, %s" % (self.reg(rex, reg, 1), rm_op), pos
-        if 0x92 <= b <= 0x9F:
-            cc = ["setb", "setae", "sete", "setne", "setbe", "seta", "sets", "setns",
-                  "setp", "setnp", "setl", "setge", "setle", "setg"][b - 0x92]
-            rm_op, pos = self.decode_modrm(data, pos + 1, rex, 0, addr64)
-            return cc, rm_op, pos
         if b == 0xAF:
             modrm = data[pos + 1] if pos + 1 < len(data) else 0
             reg = (modrm >> 3) & 7
@@ -417,6 +419,8 @@ class X86Decoder:
             rm_op, pos = self.decode_modrm(data, pos + 1, rex, 1, addr64)
             return names[b], "%s, %s" % (self.reg(rex, reg, 1), rm_op), pos
         if b == 0xB8:
+            if not f3:
+                return "db", "0x%02x" % b, pos
             modrm = data[pos + 1] if pos + 1 < len(data) else 0
             reg = (modrm >> 3) & 7
             rm_op, pos = self.decode_modrm(data, pos + 1, rex, 1, addr64)

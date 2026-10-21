@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=24`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=25`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1086,7 +1086,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
   register("video", { id: "video", label: "视频容器头解析引擎（avi/mp4/mov/m4v/f4v/mpeg/m2ts，浏览器内）", canTranslate: false,
-    formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "ts", "mts", "3gp", "3g2", "3gpp"], decompile: videoDecode });
+    formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "mts", "3gp", "3g2", "3gpp"], decompile: videoDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

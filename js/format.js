@@ -68,7 +68,7 @@ const AxiomFormats = (function () {
     webm: "media", wmv: "audio", "3gp": "video", cr3: "video", raf: "image",
     // 歌声合成工程引擎
     vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
-    tlp: "vocal", tlpx: "vocal", tssln: "vocal", svp: "vocal", s5p: "vocal",
+    tlp: "vocal", tlpx: "vocal", tssln: "vocal",
     ais: "vocal", aisp: "vocal", gj: "vocal", msq: "vocal", sk: "vocal",
     vvproj: "vocal", y77: "vocal", mtp: "vocal", ppsf: "vocal", svip3: "vocal", vcp: "vocal", vsp: "vocal",
     // 归档补充（zip/tar 容器）
@@ -87,7 +87,7 @@ const AxiomFormats = (function () {
     pef: "image", rw2: "image", srw: "image", tif: "image", tiff: "image",
     // 视频容器
     avi: "video", mp4: "video", mov: "video", m4v: "video", f4v: "video",
-    mpeg: "video", mpg: "video", vob: "video", m2ts: "video", ts: "video", mts: "video",
+    mpeg: "video", mpg: "video", vob: "video", m2ts: "video", mts: "video",
     // 音频补充（aiff/wavpack/ape/m4a 走 audio）
     aiff: "audio", aif: "audio", wv: "audio", wavpack: "audio", ape: "audio", m4a: "audio",
     gbs: "audio", gym: "audio", sid: "audio", spc: "audio", ac3: "audio", amr: "audio",
@@ -284,7 +284,7 @@ const AxiomFormats = (function () {
     let id, engine, canTranslate;
     if (KNOWN_ENGINE[ext]) {
       id = ext; engine = KNOWN_ENGINE[ext];
-      canTranslate = (engine === "doc" || engine === "voice" || engine === "rpycdec" || engine === "text" || engine === "lyric" || engine === "mail");
+      canTranslate = (engine === "doc" || engine === "voice" || engine === "vocal" || engine === "rpycdec" || engine === "text" || engine === "lyric" || engine === "mail");
     }
     else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
     else { id = "generic"; engine = "none"; canTranslate = false; }

@@ -134,10 +134,10 @@ def parse_gif(data):
 
 
 def parse_psd(data):
-    if data[:4] != b"8BSB" or struct.unpack(">H", data[4:6])[0] not in (1, 2):
+    if len(data) < 26 or data[:4] != b"8BPS" or struct.unpack(">H", data[4:6])[0] not in (1, 2):
         return None
     ver = struct.unpack(">H", data[4:6])[0]
-    ch, h, w, depth, mode = struct.unpack(">HIIHH", data[12:24])
+    ch, h, w, depth, mode = struct.unpack(">HIIHH", data[12:26])
     modes = {0: "Bitmap", 1: "灰度", 2: "索引", 3: "RGB", 4: "CMYK", 7: "多通道", 8: "Duotone", 9: "Lab"}
     return ["Adobe Photoshop PSD（版本 %d）" % ver,
             "尺寸: %dx%d  通道: %d  位深: %d" % (w, h, ch, depth),
@@ -146,9 +146,9 @@ def parse_psd(data):
 
 
 def parse_psb(data):
-    if data[:4] != b"8BPS" or struct.unpack(">H", data[4:6])[0] != 2:
+    if len(data) < 26 or data[:4] != b"8BPS" or struct.unpack(">H", data[4:6])[0] != 2:
         return None
-    ch, h, w, depth, mode = struct.unpack(">HIIHH", data[12:24])
+    ch, h, w, depth, mode = struct.unpack(">HIIHH", data[12:26])
     modes = {0: "Bitmap", 1: "灰度", 2: "索引", 3: "RGB", 4: "CMYK", 7: "多通道", 8: "Duotone", 9: "Lab"}
     return ["Adobe Photoshop Big（PSB，超大文档）",
             "尺寸: %dx%d  通道: %d  位深: %d" % (w, h, ch, depth),
