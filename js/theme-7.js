@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.20',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.21',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -471,24 +471,58 @@
       this.overlay.style.visibility = 'visible';
       // T0 简短通电：一次白闪（瞬间全黑 → 白脉冲）
       chain = chain.then(function () { flash(80); return new Promise(function (r) { setTimeout(r, 120); }); });
-      // T1–T6 前半段：正常 CMD 打字流（一切 [ OK ]）
+      // T1–T6 前半段：正常 CMD 打字流（一切 [ OK ]）——配乐为形态一冷静 groove；
+      // 每行打完给一声轻 tick（正常命令行音效感）
       CMD_SCRIPT.forEach(function (line) {
-        chain = chain.then(function () { return self.addLine(line, line.ms); });
+        chain = chain.then(function () {
+          var s = window.__axiomSfx; if (s && s.tick) s.tick();
+          return self.addLine(line, line.ms);
+        });
         if (line.t === 'cmd' || line.t === 'err') chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 60); }); });
         // 红色警示条闪出后 → 故障风暴：白屏乱闪 + 乱码雨 + 撕裂错位 + 红/绿 glitch（后半段错乱）
         if (line.t === 'alert') {
-          chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 680); }); });
+          // 音频：警示条 → 警报床起（长鸣贯穿整个错乱段，缓 fade）
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart();
+            return new Promise(function (r) { setTimeout(r, 680); });
+          });
           // 第一波：白屏 + 红色风暴（乱码/彩块/撕裂/抖动/切片 全开）
           chain = chain.then(function () { flash(80); return new Promise(function (r) { setTimeout(r, 80); }); });
-          chain = chain.then(function () { storm.start(720, 'red'); return new Promise(function (r) { setTimeout(r, 720); }); });
-          // 红闪 + 白闪
-          chain = chain.then(function () { flash(120, 'rgba(255,77,94,0.45)'); return new Promise(function (r) { setTimeout(r, 130); }); });
-          chain = chain.then(function () { flash(90, 'rgba(209,247,255,0.4)'); return new Promise(function (r) { setTimeout(r, 100); }); });
+          chain = chain.then(function () {
+            // 音频：SUB BOOM 与风暴同刻 + 300 BPM 密鼓风暴启动
+            var m = window.__axiomMusic;
+            if (m) { if (m.stormHit) m.stormHit('boom1'); if (m.stormDrumsStart) m.stormDrumsStart(); }
+            storm.start(720, 'red');
+            return new Promise(function (r) { setTimeout(r, 720); });
+          });
+          // 红闪 + 白闪（每闪一记鼓点）
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            flash(120, 'rgba(255,77,94,0.45)');
+            return new Promise(function (r) { setTimeout(r, 130); });
+          });
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            flash(90, 'rgba(209,247,255,0.4)');
+            return new Promise(function (r) { setTimeout(r, 100); });
+          });
           // 第二波：青色风暴（第二轮撕裂）
-          chain = chain.then(function () { storm.start(600, 'green'); return new Promise(function (r) { setTimeout(r, 620); }); });
-          chain = chain.then(function () { flash(100, 'rgba(209,247,255,0.5)'); return new Promise(function (r) { setTimeout(r, 120); }); });
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('boom2');
+            storm.start(600, 'green');
+            return new Promise(function (r) { setTimeout(r, 620); });
+          });
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            flash(100, 'rgba(209,247,255,0.5)');
+            return new Promise(function (r) { setTimeout(r, 120); });
+          });
           // 第三波：红色收敛（报错前最后一击）
-          chain = chain.then(function () { storm.start(420, 'red'); return new Promise(function (r) { setTimeout(r, 440); }); });
+          chain = chain.then(function () {
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('hit3');
+            storm.start(420, 'red');
+            return new Promise(function (r) { setTimeout(r, 440); });
+          });
           // 终焉序列：疯狂闪白屏/彩屏 5 连 → 满屏雪花噪点（崩溃假象）→ 红色报错
           var finSeq = [
             ['rgba(255,255,255,0.95)', 150],
@@ -499,16 +533,27 @@
           ];
           finSeq.forEach(function (f) {
             chain = chain.then(function () {
+              var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
               flash(f[1], f[0]);
               return new Promise(function (r) { setTimeout(r, f[1] + 20); });
             });
           });
           chain = chain.then(function () {
+            // 音频：雪花风暴 → crash + 噪声墙 + 短警报（密鼓继续跑）
+            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('snow');
             storm.start(680, 'snow');
             return new Promise(function (r) { setTimeout(r, 700); });
           });
           // 红色报错收尾：全屏黑 + 红色艺术字（超频危险 → 系统报错）
-          chain = chain.then(function () { return self.errFlash(); });
+          chain = chain.then(function () {
+            // 音频：红色报错 → 警报长鸣 + 密鼓渐停 + 噪声墙收
+            var m = window.__axiomMusic;
+            if (m) {
+              if (m.stormHit) m.stormHit('err');
+              if (m.stormDrumsStop) m.stormDrumsStop();
+            }
+            return self.errFlash();
+          });
         }
       });
       // 回车模拟：扫描线 + 光标急闪
@@ -539,6 +584,12 @@
       // Audio: switch the groove to overclock form (also handled by sting cue +6s).
       var m = window.__axiomMusic;
       if (m && m.sequencer) m.sequencer.setForm(2);
+      // Audio: tear down storm props now that form 2 is live.
+      if (m) {
+        if (m.stormDrumsStop) m.stormDrumsStop();
+        if (m.alarmBedStop) m.alarmBedStop();
+        if (m.noiseWallStop) m.noiseWallStop();
+      }
       var btn = $('swapBtn');
       if (btn) {
         btn.classList.remove('m-open', 'm-out', 'm-hide');
