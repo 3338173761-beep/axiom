@@ -300,6 +300,39 @@ def parse_bsa(data):
     return "\n".join(out)
 
 
+# ---- v2.8.13 新增：Android 系统二进制 ----
+def parse_art(data):
+    if data[:4] != b"\x40\x03\x01\x00" or data[4:7] != b"art":
+        return None
+    ver = struct.unpack_from("<I", data, 7)[0]
+    out = ["Android ART 运行时镜像"]
+    out.append("ART 版本: %d" % ver)
+    return "\n".join(out)
+
+
+def parse_vdex(data):
+    if data[:4] != b"vdex":
+        return None
+    ver = struct.unpack_from("<I", data, 4)[0]
+    nb = struct.unpack_from("<I", data, 8)[0]
+    out = ["Android VDEX 缓存（Validated Dex）"]
+    out.append("版本: %d  Dex 数: %d" % (ver, nb))
+    return "\n".join(out)
+
+
+def parse_oat(data):
+    # OAT = ELF 容器 + oatdata（识别 ELF 后找 "oat" 版本串）
+    if len(data) < 4 or data[:4] not in (b"\x7fELF", b"\x64\x65\x79\x0a"):
+        return None
+    head = data[:1 << 20]
+    m = re.search(rb"oat\x00(\d{1,2})\x00", head)
+    if not m:
+        return None
+    out = ["Android OAT 可执行（ELF + oat 段）"]
+    out.append("OAT 版本: " + m.group(1).decode())
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -340,8 +373,13 @@ def parse_misc(data, filename):
              "unity3d": parse_unity3d, "bsa": parse_bsa}[ext](data)
         if r:
             return r
+    if ext in ("art", "vdex", "oat"):
+        r = {"art": parse_art, "vdex": parse_vdex, "oat": parse_oat}[ext](data)
+        if r:
+            return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
-                   parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa):
+                   parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
+                   parse_art, parse_vdex, parse_oat):
         try:
             r = parser(data)
         except Exception:

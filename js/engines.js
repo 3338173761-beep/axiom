@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=18`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=19`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1040,8 +1040,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     formats: ["als", "mmpz", "aup3"], decompile: dawDecode });
   register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
     formats: ["pdb", "prc", "pml"], decompile: ebookDecode });
-  register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx/矢量/Unity，浏览器内）", canTranslate: false,
-    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa"], decompile: miscDecode });
+  register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx/矢量/Unity/ART，浏览器内）", canTranslate: false,
+    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat"], decompile: miscDecode });
   register("vocal", { id: "vocal", label: "歌声合成工程引擎（vspx/xvsq/nep/vfp/vog/kfn + JSON 族 15 格式，浏览器内）", canTranslate: false,
     formats: ["vspx", "xvsq", "nep", "vfp", "vog", "kfn", "tlp", "tlpx", "tssln", "svp", "s5p",
       "ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp"], decompile: vocalDecode });

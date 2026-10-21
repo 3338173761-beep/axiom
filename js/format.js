@@ -62,6 +62,8 @@ const AxiomFormats = (function () {
     // 杂项容器引擎
     lnk: "misc", torrent: "misc", cue: "misc", wotreplay: "misc", cdg: "misc", eps: "misc", plist: "misc", idx: "misc",
     ai: "misc", emf: "misc", wmf: "misc", unity3d: "misc", bsa: "misc",
+    art: "misc", vdex: "misc", oat: "misc",
+    uasset: "bin", umap: "bin", ucas: "bin", utoc: "bin", upk: "bin", asset: "bin",
     webm: "media", wmv: "audio", "3gp": "video", cr3: "video", raf: "image",
     // 歌声合成工程引擎
     vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
