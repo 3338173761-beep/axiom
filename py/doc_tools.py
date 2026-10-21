@@ -109,7 +109,7 @@ def extract_zip_xml(data, lower):
     names = zf.namelist()
     out = ["压缩文档包（%s）" % lower.rsplit(".", 1)[-1]]
     out.append("包内部件: %d" % len(names))
-    xml_docs = [n for n in names if n.lower().endswith((".xml", ".rels", ".fpage")) and not n.startswith("META-INF/") and "schemas" not in n.lower()]
+    xml_docs = [n for n in names if n.lower().endswith((".xml", ".rels", ".fpage", ".apxl", ".iwa", ".json", ".html", ".htm")) and not n.startswith("META-INF/") and "schemas" not in n.lower()]
     shown = 0
     for n in sorted(xml_docs)[:6]:
         try:
@@ -613,7 +613,66 @@ def extract_document(data, name):
         r = extract_slk(data)
         if r:
             return r
+    # ---- v2.8.9：老式表格二进制 / OLE 表族 / zip 表族 ----
+    r = extract_spreadsheet(data, lower)
+    if r:
+        return r
     return "暂不支持该文档格式（%s）" % lower
+
+
+# ---- v2.8.9 新增：老式表格二进制 / OLE 表族 / zip 表族 ----
+def parse_lotus(data, kind):
+    """Lotus 1-2-3（wk1/wk3）、MS Works（wks）、Quattro Pro（wb2）二进制头"""
+    out = None
+    if kind in ("wk1", "wk3"):
+        if data[:2] == b"\x00\x00" and len(data) >= 4:
+            rel = "1.x" if data[2:4] == b"\x02\x00" else "2.x/3.x"
+            out = ["Lotus 1-2-3 工作表（BIFF，%s）" % rel]
+    elif kind == "wks":
+        if data[:1] == b"\xff":
+            out = ["Microsoft Works 电子表格（WKS）"]
+    elif kind == "wb2":
+        if data[:4] == b"QPRO":
+            out = ["Corel Quattro Pro 工作表（QPRO 二进制）"]
+        elif data[:2] == b"\x00\x00" and data[2:4] in (b"\x02\x00", b"\x04\x00"):
+            out = ["Quattro Pro 工作表（BIFF 兼容）"]
+    if out is None:
+        return None
+    out.append("文件大小: %d B" % len(data))
+    # 扫描可见 ASCII 文本片段（最多 12 条）
+    found, cur, start = 0, [], None
+    for i, b in enumerate(data[:min(len(data), 1 << 18)]):
+        if 32 <= b < 127:
+            if cur is None:
+                cur, start = [], i
+            cur.append(chr(b))
+        else:
+            if cur and len(cur) >= 4:
+                found += 1
+                out.append("文本: " + "".join(cur)[:40])
+                if found >= 12:
+                    break
+            cur = None
+    if cur and len(cur) >= 4 and found < 12:
+        out.append("文本: " + "".join(cur)[:40])
+    return "\n".join(out)
+
+
+def extract_spreadsheet(data, name):
+    lower = name.lower()
+    ext = lower.rsplit(".", 1)[-1] if "." in name else ""
+    if ext in ("wk1", "wk3", "wks", "wb2"):
+        r = parse_lotus(data, ext)
+        if r:
+            return r
+    if ext in ("xla", "xlt", "xlw", "et", "ett"):
+        return extract_ole(data)  # OLE 复合文档（加载宏/模板/工作区/WPS 表）
+    if ext in ("xlsb", "numbers", "keynote"):
+        r = extract_zip_xml(data, lower)
+        if r:
+            return r
+        return "该表格/文档为 ZIP 容器但无 XML 文本可提取"
+    return None
 
 
 if __name__ == "__main__":

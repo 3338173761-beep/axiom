@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=14`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=15`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -868,7 +868,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5",
       "abw", "zabw", "fb2", "uot", "uos", "x3d", "sxw", "stw", "sxc", "stc",
       "uop", "sxi", "sti", "potm", "ppsm", "ppsx", "thmx", "xlam", "csproj",
-      "vcxproj", "mhtml", "mht", "dif", "slk"],
+      "vcxproj", "mhtml", "mht", "dif", "slk", "wk1", "wk3", "wks", "wb2",
+      "xla", "xlt", "xlw", "et", "ett", "xlsb", "numbers", "keynote"],
     decompile: docDecode,
     extractTextFromSource: extractTextSegments
   });
