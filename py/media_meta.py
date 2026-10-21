@@ -615,6 +615,72 @@ def parse_ppm(data):
     return "\n".join(out)
 
 
+def parse_webp(data):
+    """WebP：RIFF....WEBP + VP8/VP8L/VP8X 块，读画布尺寸"""
+    if len(data) < 30 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        return None
+    chunk = data[12:16]
+    out = ["WebP 图像"]
+    kind = {"VP8 ": "VP8（有损）", "VP8L": "VP8L（无损）", "VP8X": "VP8X（扩展）", "ANIM": "动画", "ALPH": "透明度块"}.get(chunk, chunk.decode("latin1", "replace"))
+    out.append("编码: " + kind)
+    try:
+        if chunk == b"VP8X" and len(data) >= 26:
+            w = (data[20] | data[21] << 8 | data[22] << 16) + 1
+            h = (data[23] | data[24] << 8 | data[25] << 16) + 1
+            out.append("尺寸: %d × %d" % (w, h))
+        elif chunk == b"VP8L" and len(data) >= 29:
+            packed = struct.unpack_from("<I", data, 25)[0]
+            w = (packed & 0x3FFF) + 1
+            h = ((packed >> 14) & 0x3FFF) + 1
+            out.append("尺寸: %d × %d" % (w, h))
+    except struct.error:
+        pass
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_avif(data):
+    """AVIF：ISO BMFF ftyp box（major brand = avif/avis）"""
+    if len(data) < 20 or data[4:8] != b"ftyp":
+        return None
+    brand = data[8:12].decode("latin1", "replace")
+    minor = struct.unpack_from(">I", data, 12)[0]
+    compat = []
+    for i in range(16, min(len(data) - 3, 64), 4):
+        compat.append(data[i:i + 4].decode("latin1", "replace"))
+    if brand not in ("avif", "avis"):
+        return None
+    out = ["AVIF 图像（ISO BMFF）"]
+    out.append("主要品牌: %s  次版本: %d" % (brand, minor))
+    if compat:
+        out.append("兼容品牌: " + ", ".join(compat))
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_icns(data):
+    """macOS 图标集：icns 魔数 + 8 字节块表"""
+    if len(data) < 8 or data[:4] != b"icns":
+        return None
+    total = struct.unpack_from(">I", data, 4)[0]
+    out = ["macOS 图标集（icns）"]
+    out.append("文件大小字段: %d B" % total)
+    types = []
+    pos = 8
+    while pos + 8 <= len(data):
+        t = data[pos:pos + 4].decode("latin1", "replace")
+        ln = struct.unpack_from(">I", data, pos + 4)[0]
+        if t not in ("icns",) and 8 <= ln <= 10000000:
+            types.append("%s(%dB)" % (t, ln))
+        pos += ln if ln >= 8 else 8
+        if len(types) >= 24:
+            break
+    out.append("图标块: %d 个" % len(types))
+    if types:
+        out.append("块类型: " + ", ".join(types))
+    return "\n".join(out)
+
+
 def parse_media(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -649,6 +715,18 @@ def parse_media(data, filename):
             return r
     if ext in ("ppm", "pgm", "pbm", "pnm"):
         r = parse_ppm(data)
+        if r:
+            return r
+    if ext == "webp":
+        r = parse_webp(data)
+        if r:
+            return r
+    if ext == "avif":
+        r = parse_avif(data)
+        if r:
+            return r
+    if ext == "icns":
+        r = parse_icns(data)
         if r:
             return r
     if ext == "bmp":
@@ -686,7 +764,8 @@ def parse_media(data, filename):
     for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font,
                    parse_mobi, parse_ole, parse_riff, parse_voc, parse_au, parse_w64,
                    parse_mkv, parse_flv, parse_swf, parse_ppm, parse_bmp, parse_ico,
-                   parse_dds, parse_tga, parse_pcx, parse_hdr, parse_psb, parse_xcf):
+                   parse_dds, parse_tga, parse_pcx, parse_hdr, parse_psb, parse_xcf,
+                   parse_webp, parse_avif, parse_icns):
         try:
             r = parser(data)
         except Exception:

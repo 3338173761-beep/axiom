@@ -562,6 +562,16 @@ def extract_slk(data):
     return "\n".join(out)
 
 
+def extract_pages(data):
+    """Apple Pages 文档：zip 容器（index.xml/iWork 文本提取）"""
+    if data[:2] != b"PK":
+        return None
+    r = extract_zip_xml(data, "pages")
+    if r and "压缩文档包" in r:
+        return "Apple Pages 文档\n" + r
+    return r
+
+
 def extract_document(data, name):
     lower = name.lower()
     if lower.endswith((".docx", ".docm", ".dotx", ".dotm")):
@@ -625,6 +635,17 @@ def extract_document(data, name):
     # ---- v2.8.14：Outlook 邮件 ----
     if lower.endswith(".msg"):
         return extract_ole(data)  # Outlook MSG（OLE 复合文档）
+    # ---- v2.8.15：Pages / WPS / WordPerfect / Write ----
+    if lower.endswith(".pages"):
+        return extract_pages(data)
+    if lower.endswith((".wps", ".wpt")):
+        if data[:2] == b"PK":
+            return extract_zip_xml(data, lower)  # WPS 新版 zip XML
+        return extract_ole(data)                  # WPS 旧版 OLE
+    if lower.endswith(".wpd"):
+        return extract_ole(data)  # WordPerfect（OLE 尝试，兜底走暂不支持）
+    if lower.endswith(".wri"):
+        return extract_ole(data)  # Microsoft Write（OLE 复合文档）
     return "暂不支持该文档格式（%s）" % lower
 
 

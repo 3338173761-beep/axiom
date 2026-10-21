@@ -191,6 +191,20 @@ def parse_vocal(data, filename):
             "tssln": "X Studio"}[ext])
         if r:
             return r
+    if ext == "vxf":
+        # VOCALOID β-STUDIO Project：保守识别（OLE 复合 / JSON / 二进制头）
+        if data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
+            return "VOCALOID β-STUDIO Project（OLE 复合文档）；大小 %d B" % len(data)
+        body = data.lstrip(b"\xef\xbb\xbf \t\r\n")
+        if body[:1] in (b"{", b"["):
+            try:
+                r = parse_json_vocal(body, "VOCALOID β-STUDIO")
+                if r:
+                    return r
+            except Exception:
+                pass
+        return "VOCALOID β-STUDIO Project（二进制工程，仅识别头）；大小 %d B，头 %s" % (
+            len(data), " ".join("%02X" % b for b in data[:16]))
     # 魔数兜底：XML 家族 / zip 容器
     for parser in (parse_vspx, parse_xvsq, parse_kfn):
         try:

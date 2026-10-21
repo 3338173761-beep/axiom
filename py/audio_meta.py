@@ -261,6 +261,8 @@ def parse_ogg(data):
         out.append("编码: Vorbis")
     elif payload.startswith(b"Theora"):
         out.append("编码: Theora")
+    elif payload.startswith(b"Speex"):
+        out.append("编码: Speex")
     else:
         out.append("编码: 未识别")
     return "\n".join(out)
@@ -533,7 +535,7 @@ def parse_audio(data, filename):
              "tak": parse_tak, "mpc": parse_mpc, "vqf": parse_vqf, "snd": parse_snd}[ext](data)
         if r:
             return r
-    if ext in ("ogm", "ogv", "mogg"):
+    if ext in ("ogm", "ogv", "mogg", "oga", "spx"):
         r = parse_ogg(data)
         if r:
             return "Ogg 容器（%s）\n%s" % (ext, r)

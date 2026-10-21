@@ -333,6 +333,81 @@ def parse_oat(data):
     return "\n".join(out)
 
 
+def parse_gp5(data):
+    """Guitar Pro 乐谱（GP3/GP4/GP5）：FWH 头 + 版本 + 长度前缀文本字段"""
+    if data[:3] != b"FWH" or len(data) < 16:
+        return None
+    ver_end = data.find(b"\x00", 3, 32)
+    ver_raw = data[3:ver_end] if ver_end > 0 else data[3:16]
+    out = ["Guitar Pro 乐谱"]
+    out.append("版本: " + ver_raw.decode("latin1", "replace").strip())
+    # GP5 用 4 字节整数长度，GP3/GP4 用 1 字节：先试 4 字节，若长度合理则采用
+    fields = ["标题", "副标题", "艺术家", "专辑", "作词", "作曲", "版权", "备注"]
+    pos = ver_end + 1 if ver_end > 0 else 3
+    got = []
+    try:
+        for name in fields:
+            if pos >= len(data):
+                break
+            four = struct.unpack_from("<I", data, pos)[0]
+            if 0 < four < 4096:
+                ln = four
+                pos += 4
+            else:
+                ln = data[pos]
+                pos += 1
+            if ln == 0:
+                continue
+            if ln > 4096:
+                break
+            s = data[pos:pos + ln].decode("latin1", "replace").strip()
+            pos += ln
+            if s and len(s) < 200:
+                got.append("%s: %s" % (name, s))
+    except (struct.error, IndexError):
+        pass
+    out.extend(got)
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_z(data):
+    """Unix compress（.Z）：0x1F 0x9D LZW 头，尾部 4 字节原始大小（大端）"""
+    if data[:2] != b"\x1f\x9d" or len(data) < 8:
+        return None
+    flags = data[2]
+    magic_hdr = bool(flags & 0x01)
+    maxbits = (flags >> 1) & 0x1F
+    out = ["Unix compress（LZW）压缩流"]
+    out.append("魔数字头: %s  最大位数: %d" % ("有" if magic_hdr else "无", maxbits))
+    if len(data) >= 8:
+        orig = struct.unpack(">I", data[-4:])[0]
+        out.append("解压后原始大小: %d B" % orig)
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_pak(data):
+    """Quake PAK 资源包：PACK + 目录偏移/大小 → 条目列表"""
+    if data[:4] != b"PACK" or len(data) < 12:
+        return None
+    (diroff, dirsize) = struct.unpack_from("<II", data, 4)
+    n = dirsize // 64
+    out = ["Quake PAK 资源包"]
+    out.append("目录偏移: %d  目录大小: %d B  条目数: %d" % (diroff, dirsize, n))
+    names = []
+    for i in range(min(n, 24)):
+        p = diroff + i * 64
+        if p + 64 > len(data):
+            break
+        nm = data[p:p + 56].split(b"\x00")[0].decode("latin1", "replace").strip()
+        if nm:
+            names.append(nm)
+    if names:
+        out.append("条目示例: " + ", ".join(names))
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -377,9 +452,21 @@ def parse_misc(data, filename):
         r = {"art": parse_art, "vdex": parse_vdex, "oat": parse_oat}[ext](data)
         if r:
             return r
+    if ext in ("gp", "gp3", "gp4", "gp5"):
+        r = parse_gp5(data)
+        if r:
+            return r
+    if ext == "z":
+        r = parse_z(data)
+        if r:
+            return r
+    if ext == "pak":
+        r = parse_pak(data)
+        if r:
+            return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
-                   parse_art, parse_vdex, parse_oat):
+                   parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak):
         try:
             r = parser(data)
         except Exception:
