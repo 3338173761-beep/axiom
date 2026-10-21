@@ -95,16 +95,41 @@ def parse_trc(data):
     return None
 
 
+def parse_kaj(data):
+    """Karaoke 歌词（.kaj）：MIDI 卡拉OK 文本探测 / 可打印文本行"""
+    if len(data) < 16:
+        return None
+    text = data.decode("latin1", "replace")
+    out = ["Karaoke 歌词（Kaj）"]
+    if "@KMIDI KARAOKE FILE" in text or "KARAOKE" in text.upper():
+        out.append("标记: MIDI 卡拉OK")
+    lines = [l.strip() for l in text.splitlines()[:40] if l.strip()]
+    printable = [l for l in lines if sum(32 <= ord(c) < 127 for c in l) > len(l) * 0.8]
+    if printable:
+        shown = 0
+        for l in printable:
+            if any(ch.isalpha() for ch in l):
+                out.append("文本: " + l[:80])
+                shown += 1
+                if shown >= 8:
+                    break
+    if len(out) == 1:
+        return None
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_lyric(data, filename):
     fn = (filename or "").lower()
     for parser, exts in ((parse_krc, (".krc",)), (parse_qrc, (".qrc",)),
-                         (parse_yrc, (".yrc",)), (parse_trc, (".trc",))):
+                         (parse_yrc, (".yrc",)), (parse_trc, (".trc",)),
+                         (parse_kaj, (".kaj",))):
         if fn.endswith(exts):
             r = parser(data)
             if r:
                 return r
     # 兜底：逐格式尝试
-    for parser in (parse_krc, parse_qrc, parse_yrc, parse_trc):
+    for parser in (parse_krc, parse_qrc, parse_yrc, parse_trc, parse_kaj):
         r = parser(data)
         if r:
             return r

@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=21`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=22`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -829,7 +829,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     id: "lyric",
     label: "加密歌词引擎（krc/qrc/yrc/trc → 时间轴还原 → 可翻译，浏览器内）",
     canTranslate: true,
-    formats: ["krc", "qrc", "yrc", "trc"],
+    formats: ["krc", "qrc", "yrc", "trc", "kaj"],
     decompile: lyricDecode,
     extractTextFromSource: extractTextSegments
   });
@@ -855,7 +855,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     id: "model",
     label: "3D 模型引擎（obj/stl/ply/gltf/glb/dae/off，浏览器内）",
     canTranslate: false,
-    formats: ["obj", "stl", "ply", "gltf", "glb", "dae", "off"],
+    formats: ["obj", "stl", "ply", "gltf", "glb", "dae", "off", "fbx", "lwo"],
     decompile: modelDecode
   });
 
@@ -1033,7 +1033,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf", "ppm", "pgm", "pbm", "pnm", "bmp", "ico", "cur", "dds", "tga", "pcx", "hdr", "psb", "xcf", "webp", "avif", "icns"], decompile: metaDecode });
   register("audio", { id: "audio", label: "音乐元数据引擎（追踪器/芯片音乐/MIDI/MP3/OGG/FLAC/WMA/AAC/AIFF/WavPack/APE，浏览器内）", canTranslate: false,
     formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi", "mid", "midi", "mp3", "ogg", "flac", "wma", "asf", "aac", "aiff", "aif", "wv", "wavpack", "ape", "m4a",
-      "gbs", "gym", "sid", "spc", "ac3", "amr", "dts", "tta", "tak", "mpc", "vqf", "snd", "ogm", "ogv", "mogg", "oga", "spx"], decompile: audioDecode });
+      "gbs", "gym", "sid", "spc", "ac3", "amr", "dts", "tta", "tak", "mpc", "vqf", "snd", "ogm", "ogv", "mogg", "oga", "spx", "nsf", "sap"], decompile: audioDecode });
   register("cad", { id: "cad", label: "CAD 文本实体引擎（DXF/IGES/SAT/STEP，浏览器内）", canTranslate: false,
     formats: ["dxf", "iges", "igs", "sat", "step", "stp"], decompile: cadDecode });
   register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT/FNT/PFB/WOFF2，浏览器内）", canTranslate: false,
@@ -1043,10 +1043,11 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
     formats: ["pdb", "prc", "pml"], decompile: ebookDecode });
   register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx/矢量/Unity/ART，浏览器内）", canTranslate: false,
-    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak"], decompile: miscDecode });
+    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx", "ai", "emf", "wmf", "unity3d", "bsa", "art", "vdex", "oat", "gp", "gp3", "gp4", "gp5", "z", "pak", "img"], decompile: miscDecode });
   register("vocal", { id: "vocal", label: "歌声合成工程引擎（vspx/xvsq/nep/vfp/vog/kfn + JSON 族 15 格式，浏览器内）", canTranslate: false,
     formats: ["vspx", "xvsq", "nep", "vfp", "vog", "kfn", "tlp", "tlpx", "tssln", "svp", "s5p",
-      "ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp", "vxf"], decompile: vocalDecode });
+      "ais", "aisp", "gj", "msq", "sk", "vvproj", "y77", "mtp", "ppsf", "svip3", "vcp", "vsp", "vxf",
+      "ddb", "ddi", "tsmsln", "tssprj"], decompile: vocalDecode });
   // ---- v2.8.6 新引擎：rom（游戏主机 ROM 头解析）----
   const romDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["rom_tools"]);

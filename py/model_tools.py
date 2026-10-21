@@ -161,17 +161,67 @@ def parse_off(data):
     return "OFF 网格 · 顶点 %s · 面 %s · 边 %s" % (m.group(1), m.group(2), m.group(3))
 
 
+def parse_fbx(data):
+    """Autodesk FBX：二进制（Kaydara FBX Binary）+ ASCII 两种"""
+    if len(data) < 25:
+        return None
+    if data[:21] == b"Kaydara FBX Binary  \x00":
+        ver = struct.unpack("<I", data[21:25])[0] if len(data) >= 25 else 0
+        out = ["Autodesk FBX（二进制）"]
+        out.append("版本: %d" % ver)
+        out.append("文件大小: %d B" % len(data))
+        return "\n".join(out)
+    if data.startswith(b"FBXHeaderExtension:"):
+        text = data.decode("latin1", "replace")
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        out = ["Autodesk FBX（ASCII）"]
+        out.append("行数: %d" % len(lines))
+        found = []
+        for l in lines:
+            low = l.lower()
+            if low.startswith("creator") or low.startswith("fbxversion"):
+                found.append(l[:80])
+        if found:
+            out.append("元数据: " + " | ".join(found[:4]))
+        return "\n".join(out)
+    return None
+
+
+def parse_lwo(data):
+    """LightWave 3D 对象：FORM + LWOB/LWLO/LWSC，遍历块"""
+    if len(data) < 12 or data[:4] != b"FORM":
+        return None
+    kind = data[8:12].decode("latin1", "replace")
+    out = ["LightWave 3D 对象（%s）" % kind]
+    chunks = []
+    pos = 12
+    while pos + 8 <= len(data) and len(chunks) < 20:
+        c = data[pos:pos + 4].decode("latin1", "replace")
+        ln = struct.unpack_from(">I", data, pos + 4)[0]
+        if not (c.isprintable() and 4 <= ln <= 10000000):
+            break
+        chunks.append(c)
+        pos += 8 + ln
+        if pos > len(data):
+            break
+    out.append("块类型: " + ", ".join(chunks) if chunks else "无块")
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_model(data, filename):
     fn = (filename or "").lower()
     for parser, exts in ((parse_obj, (".obj",)), (parse_stl, (".stl",)),
                          (parse_ply, (".ply",)), (parse_gltf, (".gltf",)),
                          (parse_glb, (".glb",)), (parse_dae, (".dae",)),
-                         (parse_off, (".off",))):
+                         (parse_off, (".off",)), (parse_fbx, (".fbx",)),
+                         (parse_lwo, (".lwo",))):
         if fn.endswith(exts):
             r = parser(data)
             if r:
                 return r
-    for parser in (parse_obj, parse_stl, parse_ply, parse_gltf, parse_glb, parse_dae, parse_off):
+    for parser in (parse_obj, parse_stl, parse_ply, parse_gltf, parse_glb, parse_dae, parse_off,
+                   parse_fbx, parse_lwo):
         r = parser(data)
         if r:
             return r

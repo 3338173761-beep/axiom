@@ -147,6 +147,55 @@ def parse_json_vocal(data, label):
     return "\n".join(out)
 
 
+def parse_voicebank_text(data, label):
+    """VOCALOID 音源配置（.ddb/.ddi 文本键值）：ASCII/UTF-16 关键词扫描"""
+    out = [label]
+    for enc in ("utf-16-le", "utf-8", "latin1"):
+        try:
+            text = data.decode(enc, "replace")
+        except Exception:
+            continue
+        if not text:
+            continue
+        if "utf-16" in enc or "\x00" in text[:200]:
+            text = text.replace("\x00", "")
+        keys = ["Version", "Language", "SingerName", "SingerID", "Category", "DefaultSamplerRate"]
+        found = []
+        for line in text.splitlines()[:300]:
+            for k in keys:
+                low = line.lower()
+                if low.startswith(k.lower()) and "=" in line:
+                    val = line.split("=", 1)[1].strip()
+                    if val:
+                        found.append("%s: %s" % (k, val))
+        if found:
+            out.extend(found[:8])
+            break
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_voisona(data, label):
+    """VoiSona 工程（.tsmsln/.tssprj）：JSON → zip → 二进制头三路"""
+    body = data.lstrip(b"\xef\xbb\xbf \t\r\n")
+    if body[:1] in (b"{", b"["):
+        try:
+            r = parse_json_vocal(body, label)
+            if r:
+                return r
+        except Exception:
+            pass
+    if data[:2] == b"PK":
+        try:
+            r = parse_zip_vocal(data, label)
+            if r:
+                return r
+        except Exception:
+            pass
+    return "%s（专有工程，仅识别头）；大小 %d B，头 %s" % (
+        label, len(data), " ".join("%02X" % b for b in data[:16]))
+
+
 def parse_vocal(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -205,6 +254,14 @@ def parse_vocal(data, filename):
                 pass
         return "VOCALOID β-STUDIO Project（二进制工程，仅识别头）；大小 %d B，头 %s" % (
             len(data), " ".join("%02X" % b for b in data[:16]))
+    if ext in ("ddb", "ddi"):
+        r = parse_voicebank_text(data, "VOCALOID Voicebank %s" % ("字典" if ext == "ddb" else "索引"))
+        if r:
+            return r
+    if ext in ("tsmsln", "tssprj"):
+        r = parse_voisona(data, "VoiSona Project")
+        if r:
+            return r
     # 魔数兜底：XML 家族 / zip 容器
     for parser in (parse_vspx, parse_xvsq, parse_kfn):
         try:

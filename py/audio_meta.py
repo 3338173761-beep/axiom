@@ -482,6 +482,43 @@ def parse_snd(data):
     return "\n".join(out)
 
 
+def parse_nsf(data):
+    """NES 音乐（NSF）：NESM 魔数 + 版本 + 曲数 + 曲名表"""
+    if data[:5] != b"NESM\x1a" or len(data) < 0x80:
+        return None
+    ver = data[5]
+    n = data[6]
+    out = ["NES 音乐（NSF）"]
+    out.append("版本: %d  曲数: %d" % (ver, n))
+    names = []
+    for i in range(4):
+        p = 0x0E + i * 32
+        nm = data[p:p + 32].split(b"\x00")[0].decode("latin1", "replace").strip()
+        if nm:
+            names.append(nm)
+    if names:
+        out.append("曲名表: " + " / ".join(names))
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
+def parse_sap(data):
+    """ZX Spectrum SAP 音乐：SAP 魔数 + 文本头（曲名/作者）"""
+    if data[:5] != b"SAP\x0d\x0a":
+        return None
+    out = ["ZX Spectrum SAP 音乐"]
+    text = data[:512].decode("latin1", "replace")
+    for line in text.splitlines()[:8]:
+        if line.startswith("NAME"):
+            out.append("曲名: " + line[5:].strip())
+        elif line.startswith("AUTHOR"):
+            out.append("作者: " + line[7:].strip())
+        elif line.startswith("STYLES"):
+            out.append("风格: " + line[7:].strip())
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_audio(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -535,6 +572,10 @@ def parse_audio(data, filename):
              "tak": parse_tak, "mpc": parse_mpc, "vqf": parse_vqf, "snd": parse_snd}[ext](data)
         if r:
             return r
+    if ext in ("nsf", "sap"):
+        r = {"nsf": parse_nsf, "sap": parse_sap}[ext](data)
+        if r:
+            return r
     if ext in ("ogm", "ogv", "mogg", "oga", "spx"):
         r = parse_ogg(data)
         if r:
@@ -543,7 +584,8 @@ def parse_audio(data, filename):
     for parser in (parse_module, parse_chip, parse_midi, parse_mp3, parse_ogg,
                    parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape,
                    parse_gbs, parse_gym, parse_sid, parse_spc, parse_ac3, parse_amr,
-                   parse_dts, parse_tta, parse_tak, parse_mpc, parse_vqf, parse_snd):
+                   parse_dts, parse_tta, parse_tak, parse_mpc, parse_vqf, parse_snd,
+                   parse_nsf, parse_sap):
         try:
             r = parser(data, filename)
         except TypeError:

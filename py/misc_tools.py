@@ -408,6 +408,30 @@ def parse_pak(data):
     return "\n".join(out)
 
 
+def parse_img(data):
+    """磁盘镜像（.img 软盘/分区）：FAT 引导扇区识别（OEM/卷标/几何参数）"""
+    if len(data) < 64:
+        return None
+    oem = data[3:11].decode("latin1", "replace").strip("\x00 ")
+    if not oem:
+        return None
+    fat_magic = oem in ("MSDOS5.0", "MSWIN4.1", "MSWIN4.0", "MSDOS   ", "mkfs.fat", "FAT16   ", "FAT12   ")
+    if not fat_magic:
+        return None
+    bps = struct.unpack_from("<H", data, 11)[0]
+    spc = data[13]
+    rsvd = struct.unpack_from("<H", data, 14)[0]
+    vol = data[0x2B:0x36].decode("latin1", "replace").strip("\x00 ") if len(data) > 0x36 else ""
+    out = ["磁盘镜像（FAT 引导扇区）"]
+    out.append("OEM: %s" % oem)
+    if bps:
+        out.append("扇区: %d B  每簇扇区: %d  保留扇区: %d" % (bps, spc, rsvd))
+    if vol:
+        out.append("卷标: " + vol)
+    out.append("文件大小: %d B" % len(data))
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -464,9 +488,14 @@ def parse_misc(data, filename):
         r = parse_pak(data)
         if r:
             return r
+    if ext == "img":
+        r = parse_img(data)
+        if r:
+            return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
-                   parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak):
+                   parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak,
+                   parse_img):
         try:
             r = parser(data)
         except Exception:
