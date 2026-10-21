@@ -617,6 +617,11 @@ def extract_document(data, name):
     r = extract_spreadsheet(data, lower)
     if r:
         return r
+    # ---- v2.8.12：笔记 / WPS 演示 ----
+    if lower.endswith((".onepkg", ".onetoc2")):
+        return extract_ole(data)  # OneNote 包/目录（OLE 复合文档）
+    if lower.endswith((".dps", ".dpt")):
+        return "WPS 演示专有二进制（%s）：金山私有格式，仅识别头；大小 %d B" % (lower.rsplit(".", 1)[-1], len(data))
     return "暂不支持该文档格式（%s）" % lower
 
 

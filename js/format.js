@@ -12,7 +12,9 @@ const AxiomFormats = (function () {
     dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
     // exe/dll 走 dotnet 引擎（peDecode 自动分流 .NET CLR / 原生 PE）；无 PE 头的原生二进制直接指 bin
     exe: "dotnet", dll: "dotnet",
-    so: "bin", elf: "bin", o: "bin", bin: "bin", wasm: "bin", sys: "bin",
+    so: "bin", elf: "bin", o: "bin", bin: "bin", wasm: "bin", sys: "bin", com: "bin",
+    wbfs: "rom", xci: "rom", mds: "rom", onepkg: "doc", onetoc2: "doc", dps: "doc", dpt: "doc",
+    m4b: "video", "3ga": "video",
     // 新引擎：PDF / SQLite / ISO / 媒体-字体-容器元数据（msi 为 OLE 复合文档，不再误映射 dotnet）
     pdf: "pdf", sqlite: "sqlite", db: "sqlite", dbf: "sqlite", sqlite3: "sqlite", sqlitedb: "sqlite", iso: "iso",
     wav: "media", png: "media", jpg: "media", jpeg: "media", gif: "media",

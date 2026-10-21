@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=17`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=18`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1056,8 +1056,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
-  register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（nes/gb/gba/nds/n64/sfc/smc/fds/cia，浏览器内）", canTranslate: false,
-    formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia"], decompile: romDecode });
+  register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（NES/GB/GBA/NDS/N64/SFC/FDS/CIA/WBFS/XCI/MDS，浏览器内）", canTranslate: false,
+    formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia", "wbfs", "xci", "mds"], decompile: romDecode });
   // ---- v2.8.7 新引擎：image（TIFF/相机 RAW 头解析）----
   const imageDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["image_tools"]);

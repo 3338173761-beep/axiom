@@ -166,6 +166,37 @@ def parse_cia(data):
     return "\n".join(out)
 
 
+# ---- v2.8.12 新增：Wii/NS 镜像 + MDS 描述符 ----
+def parse_wbfs(data):
+    if len(data) < 0x14 or data[0x10:0x14] != b"WBFS":
+        return None
+    ver = data[0x14] if len(data) > 0x14 else 0
+    out = ["Wii 游戏备份（WBFS 卷）"]
+    out.append("卷版本: %d  文件大小: %d B" % (ver, len(data)))
+    return "\n".join(out)
+
+
+def parse_xci(data):
+    if len(data) < 0x20 or data[0x10:0x16] != b"HEADER":
+        return None
+    if data[:0x10] not in (bytes(16), b"\x00" * 16):
+        pass
+    out = ["Nintendo Switch 卡带镜像（XCI）"]
+    out.append("头块: 0x10 → 'HEADER' 签名")
+    out.append("备份类型: " + (data[0x18:0x1E].decode("latin1", "replace") if len(data) >= 0x1E else "?"))
+    return "\n".join(out)
+
+
+def parse_mds(data):
+    if len(data) < 0x20:
+        return None
+    if data[0x10:0x20] != b"MEDIA DESCRIPTOR":
+        return None
+    out = ["Media Descriptor（MDS，Alcohol 120% 镜像）"]
+    out.append("描述符: " + data[0x10:0x22].decode("latin1", "replace").rstrip())
+    return "\n".join(out)
+
+
 def parse_rom(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -205,8 +236,12 @@ def parse_rom(data, filename):
         r = parse_cia(data)
         if r:
             return r
+    if ext in ("wbfs", "xci", "mds"):
+        r = {"wbfs": parse_wbfs, "xci": parse_xci, "mds": parse_mds}[ext](data)
+        if r:
+            return r
     for parser in (parse_nes, parse_gb, parse_gba, parse_nds, parse_n64,
-                   parse_sfc, parse_smc, parse_fds, parse_cia):
+                   parse_sfc, parse_smc, parse_fds, parse_cia, parse_wbfs, parse_xci, parse_mds):
         try:
             r = parser(data)
         except Exception:
