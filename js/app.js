@@ -18,9 +18,39 @@
     cardResult: $("cardResult"), btnDownload: $("btnDownload"), btnCopy: $("btnCopy"), btnReset: $("btnReset"),
     tabTrans: $("tabTrans"), srcView: $("srcView"), transView: $("transView"),
     runtimeDot: $("runtimeDot"), runtimeText: $("runtimeText"), footEngine: $("footEngine"),
-    resultStats: $("resultStats"), fmtCloud: $("fmtCloud")
+    resultStats: $("resultStats"), fmtCloud: $("fmtCloud"),
+    liveTerminal: $("liveTerminal"), termBody: $("termBody")
   };
   const tabs = Array.from(document.querySelectorAll(".tab"));
+
+  // ---------- 右侧实时解析终端（电脑端宽屏；手机端 CSS 强制隐藏） ----------
+  const Term = {
+    on: false,
+    show() {
+      if (this.on || !els.liveTerminal) return;
+      this.on = true;
+      els.liveTerminal.classList.add("term-on");
+      els.liveTerminal.setAttribute("aria-hidden", "false");
+      els.termBody.textContent = "";
+      this.line("$ axiom-live-feed ready · drop a file to begin capture", "t-dim");
+    },
+    line(msg, cls) {
+      if (!this.on || !els.termBody) return;
+      const d = document.createElement("div");
+      d.className = cls || "t-info";
+      d.textContent = msg;
+      els.termBody.appendChild(d);
+      els.termBody.scrollTop = els.termBody.scrollHeight;
+    },
+    sep() { this.line("─".repeat(40), "t-dim"); },
+    reset() {
+      if (!els.liveTerminal) return;
+      this.on = false;
+      els.liveTerminal.classList.remove("term-on");
+      els.liveTerminal.setAttribute("aria-hidden", "true");
+      if (els.termBody) els.termBody.textContent = "";
+    }
+  };
 
   let currentFile = null, currentInfo = null, currentSrc = null, currentTrans = null;
   let decompileMs = 0;
@@ -41,6 +71,8 @@
   function log(msg) {
     els.progressLog.textContent += msg + "\n";
     els.progressLog.scrollTop = els.progressLog.scrollHeight;
+    // 同步镜像到右侧实时解析终端（电脑端）
+    Term.line(msg, /✗/.test(msg) ? "t-err" : /✓/.test(msg) ? "t-ok" : "t-info");
   }
   function setBar(p) { els.barFill.style.width = Math.min(100, Math.max(0, p)) + "%"; }
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
@@ -130,8 +162,15 @@
     item.querySelector(".f-size").textContent = fmtSize(file.size);
     els.fileList.appendChild(item);
 
+    // 电脑端：右侧实时解析终端开启并开始捕获
+    Term.show();
+    Term.sep();
+    Term.line("> ingesting \"" + file.name + "\" (" + fmtSize(file.size) + ")", "t-ok");
+    Term.line("> sniffing magic bytes / header signature …", "t-info");
+
     log("正在识别格式…");
     currentInfo = await AxiomFormats.identify(file);
+    Term.line("> format table hit: " + currentInfo.id + " · engine=" + (currentInfo.engine || "none"), "t-ai");
     showInfo(currentInfo);
 
     els.cardResult.classList.add("hidden");
@@ -168,6 +207,13 @@
     els.translateToggle.checked = false;
     els.translateOptions.classList.add("hidden");
     if (!info.canTranslate) els.keyRow.classList.add("hidden");
+
+    // 终端镜像：识别结果摘要
+    Term.line("> [" + info.ext + "] " + info.label + " — " + info.desc, "t-ok");
+    Term.line("> meta: " + fmtSize(info.size) + " · head=" + (info.headHex || "n/a") + " · translate=" + (info.canTranslate ? "yes" : "no"), "t-dim");
+    if (tbl) Term.line("> table: cat=" + (tbl.cat || "?") + " · lvl=" + (tbl.lvl || "?") + " · pri=" + (tbl.pri || "?"), "t-ai");
+    Term.line("> engine bound: " + ((AxiomEngines.get(info.engine) || { label: "—" }).label), "t-ai");
+    Term.sep();
   }
 
   // ---------- 反编译 ----------
@@ -192,11 +238,14 @@
     setBar(5);
     const t0 = performance.now();
     try {
+      Term.line("> runtime: loading pyodide runtime (first load downloads, cached after) …", "t-ai");
       log("正在准备引擎…（首次加载需下载 Pyodide 运行时，之后有缓存）");
       await AxiomEngines.loadPyodideRuntime();
       setBar(35);
+      Term.line("> decompiler: " + engine.label + " :: " + currentInfo.id, "t-ok");
       currentSrc = await engine.decompile(currentFile, log);
       decompileMs = Math.round(performance.now() - t0);
+      Term.line("> done in " + decompileMs + " ms · " + String(currentSrc).split("\n").length + " lines extracted", "t-ok");
       setBar(95);
       showResult(currentSrc, null, decompileMs);
       setBar(100);
@@ -208,6 +257,7 @@
       }
     } catch (e) {
       pendingTranslate = false;
+      Term.line("> FATAL: " + e.message, "t-err");
       log("✗ 错误：" + e.message);
       els.runtimeDot.className = "dot error";
       els.runtimeText.textContent = "反编译失败";
@@ -279,6 +329,7 @@
     els.translateOptions.classList.add("hidden");
     els.keyRow.classList.add("hidden");
     setBar(0);
+    Term.reset();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
@@ -334,10 +385,12 @@
     try {
       const segs = engine.extractTextFromSource(currentSrc);
       if (!segs.length) { alert("未在反编译结果中找到可翻译文本段。"); return; }
+      Term.line("> AI pipeline: extracted " + segs.length + " text segments · target=" + els.langTo.value, "t-ai");
       log("提取到 " + segs.length + " 段对话/文本，开始语境翻译…");
       const translations = await AxiomTranslate.translateSegments(segs, els.langFrom.value, els.langTo.value, log);
       currentTrans = AxiomTranslate.buildTranslatedSource(currentSrc, segs, translations);
       const lines = String(currentTrans).split("\n").length;
+      Term.line("> translated source rebuilt · " + lines + " lines", "t-ok");
       els.resultStats.innerHTML = `${lines} 行 · ${currentTrans.length.toLocaleString()} 字符 · 已翻译`;
       renderCode(els.transView, currentTrans, true);
       els.tabTrans.classList.remove("hidden");

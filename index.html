@@ -123,6 +123,15 @@
     <!-- 右列：工作流 -->
     <div class="flow">
 
+      <!-- 实时解析终端（仅电脑端宽屏，上传文件后开启） -->
+      <section id="liveTerminal" class="live-term" aria-hidden="true">
+        <div class="term-bar">
+          <span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span>
+          <span class="term-path">AXIOM LIVE FEED · axiom@overclock:~/decompiled $</span>
+        </div>
+        <pre id="termBody" class="term-body"></pre>
+      </section>
+
       <!-- 2 识别 -->
       <section class="card hidden" id="cardInfo">
         <div class="card-head"><span class="step-no">2</span><h2>格式识别</h2></div>

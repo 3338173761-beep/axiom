@@ -525,8 +525,24 @@
     }, 340);
   }
 
+  /* ---------- 环境检测：电脑端 / 手机端（跟随浏览器「电脑模式」开关） ----------
+   * 判定信号用浏览器自带能力：User-Agent 非移动端（真电脑，或手机浏览器开启
+   * 电脑模式/桌面网站后 UA 伪装成桌面）→ 桌面；视口 >= 1024 或精确指针 → 桌面。
+   * 结果写到 <html data-env="desktop|mobile">，布局与右侧实时解析终端据此渲染。 */
+  function detectEnv() {
+    var ua = navigator.userAgent || '';
+    var mobileUA = /Mobi|Android|iPhone|iPad|Windows Phone/i.test(ua);
+    var wide = window.innerWidth >= 1024;
+    var fine = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+    var env = (!mobileUA || wide || fine) ? 'desktop' : 'mobile';
+    document.documentElement.setAttribute('data-env', env);
+    return env;
+  }
+
   /* ---------- 入口 ---------- */
   function init() {
+    detectEnv();
+    window.addEventListener('resize', function () { detectEnv(); });
     probeMemory();
     rain.init();
     storm.init();

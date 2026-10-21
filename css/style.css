@@ -1012,8 +1012,9 @@ body {
 .warn-actions { display: flex; gap: 12px; margin-top: 16px; justify-content: flex-end; }
 .warn-btn { min-width: 108px; min-height: 44px; justify-content: center; border-radius: 0; }
 .warn-btn-ok {
-  background: var(--cyber-primary); color: #01140B;
-  border: 1px solid var(--cyber-primary); font-weight: 700;
+  /* 弹窗在点击后、主题切换前出现：不能用只在 overclock 主题下定义的变量，用字面色 */
+  background: #00FF88; color: #01140B;
+  border: 1px solid #00FF88; font-weight: 700;
 }
 .warn-btn-ok:hover { box-shadow: 0 0 14px rgba(0,255,136,.6); }
 .warn-btn-cancel {
@@ -1041,18 +1042,39 @@ body {
 .cmd-overlay.exiting { animation: coverDown .2s var(--ease-mech) forwards; }
 @keyframes coverDown { from { opacity: 1; } to { opacity: 1; } }
 
-/* ---- 手机端降辉光 ---- */
+/* ---- 手机端降辉光 + 三处 bug 修复 ---- */
 @media (max-width: 480px) {
   :root[data-theme="overclock"] .card { box-shadow: 0 0 12px rgba(0,255,136,.05); }
   :root[data-theme="overclock"] .scanlines { opacity: .04; }
   .cmd-inner { font-size: 13.5px; }
-  .swap-btn { width: 124px; height: 36px; font-size: 13px; }
-  .swap-btn.m-oc { width: 100px; height: 30px; font-size: 11.5px; }
+
+  /* Bug3 修复：按钮不裁字（中文「超频协议」与英文 RETURN TO BASE 均完整） */
+  .swap-btn { width: 138px; height: 36px; font-size: 13px; letter-spacing: 0; padding: 0 10px; }
+  .swap-btn__label { letter-spacing: 0; white-space: nowrap; overflow: visible; }
+  .swap-btn.m-oc { width: 156px; height: 32px; font-size: 12px; }
+  .swap-btn.m-oc .oc-en { letter-spacing: .04em; }
+
+  /* Bug2 修复：顶部警示条窄屏自动换行两行、居中、高度自适应不裁切 */
+  .oc-banner {
+    height: auto; min-height: 22px;
+    flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 0 8px; padding: 3px 8px;
+  }
+  .oc-banner__hazard { display: none; }
+  .oc-banner__text { order: 1; width: 100%; text-align: center; font-size: 9px; letter-spacing: .06em; line-height: 1.5; }
+  .oc-banner__hz { order: 2; font-size: 8.5px; letter-spacing: .08em; }
+  :root[data-theme="overclock"] .topbar { top: 42px; }
+
+  /* Bug1 修复：警告弹窗按钮区留白 + 按钮更亮更可点 */
+  .warn-mask { padding: 12px; }
+  .warn-panel { max-width: 100%; padding: 18px 14px 16px; }
+  .warn-actions { justify-content: flex-end; margin-top: 14px; gap: 10px; padding: 0 16px 6px 0; }
+  .warn-btn { min-width: 118px; min-height: 46px; font-size: 14px; }
+  .warn-btn-ok { box-shadow: 0 0 12px rgba(0,255,136,.45); }
+
   .hud-reads { gap: 9px; }
   .hud-read i { font-size: 8px; }
   .hud-read b { font-size: 11px; }
-  .oc-banner { font-size: 9.5px; height: 22px; }
-  :root[data-theme="overclock"] .topbar { top: 22px; }
   .cmd-alert { font-size: 12px; }
 }
 
@@ -1159,3 +1181,51 @@ body.oc-shake { animation: ocShake .3s steps(3) infinite; }
   77% { opacity: .66; }
   79% { opacity: 1; }
 }
+
+/* ============ 右侧实时解析终端（电脑端宽屏 · data-env=desktop） ============ */
+.live-term {
+  display: none;               /* 待机 / 手机端均不显示 */
+  flex-direction: column;
+  background: #060A12;
+  border: 1px solid rgba(0,255,136,.28);
+  box-shadow: 0 0 18px rgba(0,255,136,.07), inset 0 0 20px rgba(0,212,255,.03);
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  font-family: "Share Tech Mono", "Cascadia Code", Consolas, monospace;
+  overflow: hidden;
+}
+html[data-env="desktop"] .live-term.term-on { display: flex; }
+html[data-env="mobile"] .live-term { display: none !important; }
+.term-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 12px;
+  background: #0A0F1A;
+  border-bottom: 1px solid rgba(0,212,255,.22);
+  font-size: 11px; letter-spacing: .1em; color: #7DE8FF;
+}
+.term-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+.term-dot:nth-child(1) { background: #FF4D5E; }
+.term-dot:nth-child(2) { background: #FFB020; }
+.term-dot:nth-child(3) { background: #00FF88; }
+.term-path { flex: 1; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-body {
+  flex: 1; min-height: 230px; max-height: 360px;
+  margin: 0; padding: 12px 14px;
+  overflow-y: auto;
+  font-size: 12.5px; line-height: 1.75; color: #9DFFCB;
+  white-space: pre-wrap; word-break: break-all;
+  scrollbar-color: rgba(0,255,136,.4) transparent;
+}
+.term-body::after {
+  content: ""; display: inline-block; width: 8px; height: 13px;
+  background: rgba(0,255,136,.85); margin-left: 2px; vertical-align: -2px;
+  animation: termCursor .9s steps(1) infinite;
+}
+@keyframes termCursor { 50% { opacity: 0; } }
+.term-body .t-info { color: #9DFFCB; }
+.term-body .t-ok   { color: #00FF88; text-shadow: 0 0 8px rgba(0,255,136,.5); }
+.term-body .t-warn { color: #FFB020; }
+.term-body .t-err  { color: #FF4D5E; text-shadow: 0 0 8px rgba(255,77,94,.5); }
+.term-body .t-ai   { color: #7DE8FF; }
+.term-body .t-dim  { color: #4E7A6A; }
+.term-on { animation: termIn .28s var(--ease-decel) both; }
+@keyframes termIn { from { opacity: 0; transform: translateY(6px); } }
