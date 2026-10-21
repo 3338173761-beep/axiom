@@ -568,6 +568,8 @@ def extract_document(data, name):
         return extract_docx(data)
     if lower.endswith((".doc", ".dot")):
         return extract_ole(data)  # OLE 复合文档（Word 97-2003）
+    if lower.endswith(".xls"):
+        return extract_ole(data)  # OLE 复合文档（Excel 97-2003 二进制，UTF-16 正文扫描）
     if lower.endswith((".xlsx", ".xlsm", ".xltx", ".xltm")):
         return extract_xlsx(data)
     if lower.endswith((".pptx", ".pptm", ".potx")):

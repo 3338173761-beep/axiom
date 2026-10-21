@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=9`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=10`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -863,7 +863,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     id: "doc",
     label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf/乐谱/版式 → 可翻译文本，浏览器内）",
     canTranslate: true,
-    formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
+    formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xls", "xlsx", "xlsm", "xltx", "xltm",
       "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
       "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5",
       "abw", "zabw", "fb2", "uot", "uos", "x3d", "sxw", "stw", "sxc", "stc",
@@ -981,6 +981,37 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
+  // ---- v2.8.4 新引擎：daw（DAW 工程）/ ebook（PalmDB 电子书）/ misc（杂项容器）----
+  const dawDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["daw_tools"]);
+    const n = await writeInput(p, "/axiom/input.daw", file);
+    onLog && onLog("daw: DAW 工程（als/mmpz/aup3）→ daw_tools.py");
+    const r = await p.runPythonAsync("import daw_tools\n"
+      + "data = open('/axiom/input.daw','rb').read()\n"
+      + "out = daw_tools.parse_daw(data, '/axiom/input.daw')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  const ebookDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["ebook_tools"]);
+    const n = await writeInput(p, "/axiom/input.ebk", file);
+    onLog && onLog("ebook: PalmDB 电子书（pdb/prc/pml）→ ebook_tools.py");
+    const r = await p.runPythonAsync("import ebook_tools\n"
+      + "data = open('/axiom/input.ebk','rb').read()\n"
+      + "out = ebook_tools.parse_ebook(data, '/axiom/input.ebk')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  const miscDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["misc_tools"]);
+    const n = await writeInput(p, "/axiom/input.misc", file);
+    onLog && onLog("misc: 杂项容器（lnk/torrent/cue/wotreplay/cdg/eps/plist）→ misc_tools.py");
+    const r = await p.runPythonAsync("import misc_tools\n"
+      + "data = open('/axiom/input.misc','rb').read()\n"
+      + "out = misc_tools.parse_misc(data, '/axiom/input.misc')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
 
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
   register("sqlite", { id: "sqlite", label: "SQLite/dBase 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db", "dbf", "sqlite3", "sqlitedb"], decompile: sqliteDecode });
@@ -993,6 +1024,12 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     formats: ["dxf", "iges", "igs", "sat", "step", "stp"], decompile: cadDecode });
   register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT，浏览器内）", canTranslate: false,
     formats: ["woff", "ttc", "otc", "pfm", "eot"], decompile: fontDecode });
+  register("daw", { id: "daw", label: "DAW 工程引擎（Ableton Live als / LMMS mmpz / Audacity aup3，浏览器内）", canTranslate: false,
+    formats: ["als", "mmpz", "aup3"], decompile: dawDecode });
+  register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
+    formats: ["pdb", "prc", "pml"], decompile: ebookDecode });
+  register("misc", { id: "misc", label: "杂项容器引擎（lnk/torrent/cue/wotreplay/cdg/eps/plist，浏览器内）", canTranslate: false,
+    formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist"], decompile: miscDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();
