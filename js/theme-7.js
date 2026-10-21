@@ -78,12 +78,35 @@
         this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
       }
       var ctx = this.ctx;
+      var self = this;
+      // 终焉模式：满屏雪花噪点（电视雪花）——崩溃假象
+      if (this.palette === 'snow') {
+        if (!this.snowImg || this.snowImg.width !== W || this.snowImg.height !== H) {
+          this.snowImg = ctx.createImageData(W, H);
+          var d0 = this.snowImg.data;
+          for (var z = 0; z < d0.length; z += 4) { d0[z] = 20; d0[z + 1] = 20; d0[z + 2] = 24; d0[z + 3] = 255; }
+        }
+        var d = this.snowImg.data, n = d.length, k = 0, target = Math.floor(W * H * 0.38);
+        while (k < target) {
+          var i = (Math.random() * n) & ~3;
+          var v = Math.random() < 0.45 ? 255 : (Math.random() < 0.35 ? 150 : 15);
+          d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = 255;
+          k++;
+        }
+        ctx.putImageData(this.snowImg, 0, 0);
+        if (Math.random() < 0.4) {
+          ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '255,77,94' : '0,212,255') + ',0.28)';
+          ctx.fillRect(0, 0, W, H);
+        }
+        this.rafId = requestAnimationFrame(function (tt) { self.frame(tt); });
+        return;
+      }
       ctx.fillStyle = 'rgba(2,3,8,0.30)';
       ctx.fillRect(0, 0, W, H);
       var c1, c2, c3;
       if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; c3 = '255,255,255'; }
-      else { c1 = '0,255,136'; c2 = '255,77,94'; c3 = '209,247,255'; }
-      var self = this;
+      else if (this.palette === 'green') { c1 = '0,255,136'; c2 = '255,77,94'; c3 = '209,247,255'; }
+      else { c1 = '255,255,255'; c2 = '0,212,255'; c3 = '255,77,94'; }
       // 0) 全屏色相冲屏：随机概率整屏染色（错乱感）
       if (Math.random() < 0.06) {
         ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c2) + ',0.13)';
@@ -96,7 +119,7 @@
       }
       // 1) 乱码字符风暴：密度按屏幕面积自适应（手机端自动加倍不再稀疏）
       ctx.font = (16 + Math.random() * 26) + 'px "Share Tech Mono", monospace';
-      var rows = Math.max(26, Math.round(H / 16));
+      var rows = Math.max(30, Math.round(H / 12));
       for (var i = 0; i < rows; i++) {
         var y = Math.random() * H;
         var x = Math.random() * 60 - 30;
@@ -108,7 +131,7 @@
         ctx.fillText(str, x, y);
       }
       // 2) 彩色 glitch 块：数量按面积自适应（红/青/绿/白 小方块乱闪）
-      var blocks = Math.min(72, Math.max(18, Math.round(W * H / 11000)));
+      var blocks = Math.min(96, Math.max(24, Math.round(W * H / 7500)));
       for (var b = 0; b < blocks; b++) {
         var bw = 4 + Math.random() * 80, bh = 2 + Math.random() * 20;
         var bx = Math.random() * W, by = Math.random() * H;
@@ -122,7 +145,7 @@
         ctx.fillRect(0, Math.random() * H, W, 1 + Math.random() * 3);
       }
       // 4) 噪点像素：密度按屏幕面积（雪花，手机端不再稀疏不可见）
-      var noiseN = Math.min(1800, Math.max(520, Math.round(W * H / 420)));
+      var noiseN = Math.min(2600, Math.max(700, Math.round(W * H / 260)));
       for (var p = 0; p < noiseN; p++) {
         var pc = Math.random() < 0.5 ? c1 : (Math.random() < 0.3 ? c3 : c2);
         ctx.fillStyle = 'rgba(' + pc + ',' + (0.15 + Math.random() * 0.55) + ')';
@@ -466,6 +489,24 @@
           chain = chain.then(function () { flash(100, 'rgba(209,247,255,0.5)'); return new Promise(function (r) { setTimeout(r, 120); }); });
           // 第三波：红色收敛（报错前最后一击）
           chain = chain.then(function () { storm.start(420, 'red'); return new Promise(function (r) { setTimeout(r, 440); }); });
+          // 终焉序列：疯狂闪白屏/彩屏 5 连 → 满屏雪花噪点（崩溃假象）→ 红色报错
+          var finSeq = [
+            ['rgba(255,255,255,0.95)', 150],
+            ['rgba(255,77,94,0.9)', 120],
+            ['rgba(209,247,255,0.95)', 150],
+            ['rgba(0,255,136,0.9)', 120],
+            ['rgba(255,255,255,1)', 170]
+          ];
+          finSeq.forEach(function (f) {
+            chain = chain.then(function () {
+              flash(f[1], f[0]);
+              return new Promise(function (r) { setTimeout(r, f[1] + 20); });
+            });
+          });
+          chain = chain.then(function () {
+            storm.start(680, 'snow');
+            return new Promise(function (r) { setTimeout(r, 700); });
+          });
           // 红色报错收尾：全屏黑 + 红色艺术字（超频危险 → 系统报错）
           chain = chain.then(function () { return self.errFlash(); });
         }
@@ -505,10 +546,11 @@
       // 第二形态全面英文化（2077 艺术字）
       i18n.apply();
       var self = this;
-      setTimeout(function () { self.overlay.style.visibility = 'hidden'; }, 320);
+      setTimeout(function () { self.overlay.style.visibility = 'hidden'; unlockScroll(); }, 320);
     },
     skip: function () {
       if (!state.entering) return;
+      unlockScroll();
       this.finishEnter();
     },
     /* 红色报错收尾：全屏黑 + 红色艺术字（超频协议命名由来：超频=危险→系统报错） */
@@ -562,9 +604,30 @@
   };
 
   /* ---------- 入场编排：纯黑瞬现 → 机械展开 → CMD 转场 ---------- */
+  /* 转场全程锁定滚动：风暴期间页面无法下拉，看不到任何空区（"风暴长到拉不完"） */
+  function lockScroll() {
+    window.__axScroll = {
+      o1: document.documentElement.style.overflow,
+      o2: document.body.style.overflow,
+      y: window.pageYOffset || 0
+    };
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    window.scrollTo(0, 0);
+  }
+  function unlockScroll() {
+    var s = window.__axScroll;
+    if (s) {
+      document.documentElement.style.overflow = s.o1;
+      document.body.style.overflow = s.o2;
+      window.scrollTo(0, s.y);
+      window.__axScroll = null;
+    }
+  }
   function enterNeon() {
     if (state.entering || state.active || state.exiting) return;
     state.entering = true;
+    lockScroll();
     var btn = $('swapBtn');
     // 1) 立即把主题切到 overclock，让背景/覆盖层全部生效
     document.documentElement.setAttribute('data-theme', 'overclock');
@@ -583,6 +646,7 @@
   function exitNeon() {
     if (!state.active || state.entering || state.exiting) return;
     state.exiting = true;
+    lockScroll();
     // 先恢复中文（原版 UI）
     i18n.restore();
     var btn = $('swapBtn');
@@ -606,6 +670,7 @@
           rain.cfg.speed = 1;
           btn.classList.remove('m-open', 'm-down', 'm-hide');
           state.exiting = false;
+          unlockScroll();
         }, 460);
       }, 560);
     }, 340);
