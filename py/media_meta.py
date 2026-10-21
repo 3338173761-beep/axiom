@@ -3,6 +3,7 @@
 纯标准库（struct/binascii/zlib），Pyodide 可直接运行。入口：parse_media(data, filename) -> str|None
 """
 import struct
+import re
 
 
 def _dec(b):
@@ -483,6 +484,23 @@ def parse_swf(data):
     return "\n".join(out)
 
 
+def parse_ppm(data):
+    """PPM/PGM/PBM：ASCII/二进制图像头"""
+    if not data[:2] in (b"P1", b"P2", b"P3", b"P4", b"P5", b"P6"):
+        return None
+    out = ["Portable Pixmap（PPM 族）"]
+    kind = {b"P1": "PBM 位图", b"P2": "PGM 灰度文本", b"P3": "PPM 彩色文本",
+            b"P4": "PBM 二进制", b"P5": "PGM 灰度二进制", b"P6": "PPM 彩色二进制"}.get(data[:2], "")
+    out.append("类型: " + kind)
+    head = data[2:200].decode("latin1", "replace")
+    nums = re.findall(r"\d+", head)
+    if len(nums) >= 2:
+        out.append("尺寸: %s × %s" % (nums[0], nums[1]))
+    if len(nums) >= 3:
+        out.append("最大灰度/色值: %s" % nums[2])
+    return "\n".join(out)
+
+
 def parse_media(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -515,9 +533,13 @@ def parse_media(data, filename):
         r = parse_swf(data)
         if r:
             return r
+    if ext in ("ppm", "pgm", "pbm", "pnm"):
+        r = parse_ppm(data)
+        if r:
+            return r
     for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font,
                    parse_mobi, parse_ole, parse_riff, parse_voc, parse_au, parse_w64,
-                   parse_mkv, parse_flv, parse_swf):
+                   parse_mkv, parse_flv, parse_swf, parse_ppm):
         try:
             r = parser(data)
         except Exception:

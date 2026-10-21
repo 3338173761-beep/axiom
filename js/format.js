@@ -57,7 +57,11 @@ const AxiomFormats = (function () {
     // 电子书容器引擎
     pdb: "ebook", prc: "ebook", pml: "ebook",
     // 杂项容器引擎
-    lnk: "misc", torrent: "misc", cue: "misc", wotreplay: "misc", cdg: "misc", eps: "misc", plist: "misc",
+    lnk: "misc", torrent: "misc", cue: "misc", wotreplay: "misc", cdg: "misc", eps: "misc", plist: "misc", idx: "misc",
+    // 歌声合成工程引擎
+    vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
+    // 归档补充（zip/tar 容器）
+    ipa: "archive", ustar: "archive",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",

@@ -204,6 +204,29 @@ def parse_plist(data):
     return "\n".join(out)
 
 
+def parse_idx(data):
+    """VOBsub 字幕索引：timestamp: x,y,w,h, 页列表"""
+    try:
+        text = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if not any(k in text[:2000].upper() for k in ("# VobSub", "TIMESTAMP", "IDX", "INDEX")):
+        if "timestamp:" not in text[:2000].lower():
+            return None
+    out = ["VOBsub 字幕索引（idx）"]
+    pages = 0
+    for ln in text.splitlines():
+        if re.match(r"^\d{2}:\d{2}:\d{2}:\d{3}\s*:", ln):
+            pages += 1
+        if ln.upper().startswith("ID:"):
+            out.append("  " + ln[:80])
+    out.append("时间戳页: %d" % pages)
+    m = re.search(r"#\s*VobSub\s*index", text, re.I)
+    if m:
+        out.append("标识: VobSub index")
+    return "\n".join(out)
+
+
 def parse_misc(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -233,6 +256,10 @@ def parse_misc(data, filename):
             return r
     if ext == "plist":
         r = parse_plist(data)
+        if r:
+            return r
+    if ext == "idx":
+        r = parse_idx(data)
         if r:
             return r
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist):
