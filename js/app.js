@@ -468,12 +468,20 @@
 
   // ---------- 启动 ----------
   if (AxiomTranslate.getApiKey()) { els.apiKey.value = "••••••••"; }
+  // Pyodide WASM 编译会在移动端阻塞主线程数秒，饿死音乐调度器（首手势后
+  // 长时间无音）。移动端（pointer:coarse）改为按需加载：首次反编译时才启动，
+  // 桌面端保持后台预热。反编译/翻译路径内已有 loadPyodideRuntime() 兜底。
+  const isCoarsePointer = window.matchMedia && matchMedia("(pointer: coarse)").matches;
   setTimeout(() => {
-    AxiomEngines.loadPyodideRuntime().then(() => {
-      els.footEngine.textContent = "引擎层：Pyodide + rpycdec/uncompyle6 已就绪 · 浏览器本地运行 · 已实测反编译 Ren'Py 游戏脚本";
-    }).catch(e => {
-      els.footEngine.textContent = "引擎层：加载失败（" + e.message + "）";
-    });
+    if (isCoarsePointer) {
+      els.footEngine.textContent = "引擎层：按需加载（首次反编译时启动）";
+    } else {
+      AxiomEngines.loadPyodideRuntime().then(() => {
+        els.footEngine.textContent = "引擎层：Pyodide + rpycdec/uncompyle6 已就绪 · 浏览器本地运行 · 已实测反编译 Ren'Py 游戏脚本";
+      }).catch(e => {
+        els.footEngine.textContent = "引擎层：加载失败（" + e.message + "）";
+      });
+    }
   }, 800);
 
   // ---------- 自动化端到端测试钩子（仅本地 127.0.0.1/localhost 触发，线上不激活） ----------
