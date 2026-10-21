@@ -89,6 +89,10 @@ const AxiomFormats = (function () {
     mpeg: "video", mpg: "video", vob: "video", m2ts: "video", ts: "video", mts: "video",
     // 音频补充（aiff/wavpack/ape/m4a 走 audio）
     aiff: "audio", aif: "audio", wv: "audio", wavpack: "audio", ape: "audio", m4a: "audio",
+    gbs: "audio", gym: "audio", sid: "audio", spc: "audio", ac3: "audio", amr: "audio",
+    dts: "audio", tta: "audio", tak: "audio", mpc: "audio", vqf: "audio", snd: "audio",
+    ogm: "audio", ogv: "audio", mogg: "audio", opus: "audio", mka: "media",
+    psb: "media", xcf: "media", msg: "doc",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",

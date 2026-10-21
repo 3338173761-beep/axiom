@@ -622,6 +622,9 @@ def extract_document(data, name):
         return extract_ole(data)  # OneNote 包/目录（OLE 复合文档）
     if lower.endswith((".dps", ".dpt")):
         return "WPS 演示专有二进制（%s）：金山私有格式，仅识别头；大小 %d B" % (lower.rsplit(".", 1)[-1], len(data))
+    # ---- v2.8.14：Outlook 邮件 ----
+    if lower.endswith(".msg"):
+        return extract_ole(data)  # Outlook MSG（OLE 复合文档）
     return "暂不支持该文档格式（%s）" % lower
 
 

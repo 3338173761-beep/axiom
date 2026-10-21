@@ -364,6 +364,115 @@ def parse_ape(data):
     return "\n".join(out)
 
 
+# ---- v2.8.14 新增：芯片音乐族 + 编解码头 ----
+def parse_gbs(data):
+    if data[:3] != b"GBS":
+        return None
+    ver = data[3]
+    n = struct.unpack_from("<B", data, 4)[0]
+    spd = struct.unpack_from("<H", data, 7)[0]
+    out = ["Game Boy Sound（GBS）"]
+    out.append("版本: %d  曲数: %d  默认节奏: %d Hz" % (ver, n, spd))
+    return "\n".join(out)
+
+
+def parse_gym(data):
+    if data[:4] != b"GYM ":
+        return None
+    out = ["Genesis YM2612 音乐（GYM）"]
+    if len(data) >= 8 and data[4:8] == b"\x00\x00\x00\x00":
+        out.append("YMF262 扩展: 无（标准 GYM）")
+    return "\n".join(out)
+
+
+def parse_sid(data):
+    if data[:4] != b"PSID":
+        return None
+    ver = struct.unpack_from(">H", data, 4)[0]
+    n = struct.unpack_from(">H", data, 6)[0]
+    out = ["Commodore 64 SID 音乐"]
+    out.append("版本: %d.%d  曲数: %d" % (ver >> 8, ver & 0xFF, n))
+    return "\n".join(out)
+
+
+def parse_spc(data):
+    if data[:11] != b"SNES-SPC700":
+        return None
+    out = ["SNES SPC700 音频"]
+    out.append("SPC 版本: %s" % data[0x21:0x23].decode("latin1", "replace"))
+    out.append("歌曲名: " + data[0x1E:0x2E].split(b"\x00")[0].decode("latin1", "replace").strip())
+    return "\n".join(out)
+
+
+def parse_ac3(data):
+    if data[:2] != b"\x0b\x77":
+        return None
+    fr = data[4] >> 3
+    sr = (data[4] >> 2) & 0x7
+    bsi = data[5]
+    out = ["Dolby Digital AC-3 帧"]
+    out.append("帧长: %d B  采样率: %d Hz" % (fr, [48000, 44100, 32000, 0, 0, 0, 24000, 22050][sr] if sr <= 7 else 0))
+    out.append("码流信息: 0x%02X" % bsi)
+    return "\n".join(out)
+
+
+def parse_amr(data):
+    if data[:5] != b"#!AMR":
+        return None
+    out = ["Adaptive Multi-Rate 音频（AMR）"]
+    out.append("类型: " + ("AMR-NB" if data[5:7] in (b"\n", b"\r\n") or len(data) == 6 else "AMR-WB" if b"-WB" in data[:12] else "AMR") )
+    return "\n".join(out)
+
+
+def parse_dts(data):
+    if data[:4] != b"\x7f\xfe\x80\x01":
+        return None
+    frame = struct.unpack_from("<I", data, 4)[0] >> 5
+    out = ["DTS 音频帧"]
+    out.append("帧长: %d B" % frame)
+    return "\n".join(out)
+
+
+def parse_tta(data):
+    if data[:4] != b"TTA1":
+        return None
+    out = ["True Audio（TTA）"]
+    out.append("TTA 版本: %s" % data[4:8].decode("latin1", "replace").rstrip("\x00"))
+    return "\n".join(out)
+
+
+def parse_tak(data):
+    if data[:4] != b"tTaK":
+        return None
+    out = ["Tom's lossless Audio（TAK）"]
+    out.append("TAK 版本: %s" % data[4:8].decode("latin1", "replace").rstrip("\x00"))
+    return "\n".join(out)
+
+
+def parse_mpc(data):
+    if data[:4] != b"MPCK":
+        return None
+    out = ["Musepack（MPC）"]
+    out.append("流版本: %d" % data[4] if len(data) > 4 else 0)
+    return "\n".join(out)
+
+
+def parse_vqf(data):
+    if data[:4] != b"TWIN":
+        return None
+    out = ["TwinVQ（VQF）"]
+    out.append("VQF 版本: %s" % data[8:12].decode("latin1", "replace"))
+    return "\n".join(out)
+
+
+def parse_snd(data):
+    if data[:4] != b"SND ":
+        return None
+    out = ["SND 音频（NEXT/Sun）"]
+    out.append("数据偏移: %d B" % struct.unpack_from(">I", data, 4)[0])
+    return "\n".join(out)
+
+
 def parse_audio(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -411,9 +520,17 @@ def parse_audio(data, filename):
         r = parse_ape(data)
         if r:
             return r
+    if ext in ("gbs", "gym", "sid", "spc", "ac3", "amr", "dts", "tta", "tak", "mpc", "vqf", "snd", "ogm", "ogv", "mogg"):
+        r = {"gbs": parse_gbs, "gym": parse_gym, "sid": parse_sid, "spc": parse_spc,
+             "ac3": parse_ac3, "amr": parse_amr, "dts": parse_dts, "tta": parse_tta,
+             "tak": parse_tak, "mpc": parse_mpc, "vqf": parse_vqf, "snd": parse_snd}[ext](data)
+        if r:
+            return r
     # 魔数兜底
     for parser in (parse_module, parse_chip, parse_midi, parse_mp3, parse_ogg,
-                   parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape):
+                   parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape,
+                   parse_gbs, parse_gym, parse_sid, parse_spc, parse_ac3, parse_amr,
+                   parse_dts, parse_tta, parse_tak, parse_mpc, parse_vqf, parse_snd):
         try:
             r = parser(data, filename)
         except TypeError:

@@ -145,6 +145,27 @@ def parse_psd(data):
             "大小: %d 字节" % len(data)]
 
 
+def parse_psb(data):
+    if data[:4] != b"8BPS" or struct.unpack(">H", data[4:6])[0] != 2:
+        return None
+    ch, h, w, depth, mode = struct.unpack(">HIIHH", data[12:24])
+    modes = {0: "Bitmap", 1: "灰度", 2: "索引", 3: "RGB", 4: "CMYK", 7: "多通道", 8: "Duotone", 9: "Lab"}
+    return ["Adobe Photoshop Big（PSB，超大文档）",
+            "尺寸: %dx%d  通道: %d  位深: %d" % (w, h, ch, depth),
+            "色彩模式: %s" % modes.get(mode, "?"),
+            "大小: %d 字节" % len(data)]
+
+
+def parse_xcf(data):
+    if data[:9] != b"gimp xcf " and data[:14] != b"gimp xcf v011":
+        return None
+    out = ["GIMP XCF 图像"]
+    ver = data[9:14].decode("latin1", "replace")
+    out.append("XCF 版本: " + ver.strip())
+    out.append("大小: %d 字节" % len(data))
+    return "\n".join(out)
+
+
 def parse_font(data):
     sig = data[:4]
     if sig == b"\x00\x01\x00\x00":
@@ -654,10 +675,18 @@ def parse_media(data, filename):
         r = parse_hdr(data)
         if r:
             return r
+    if ext == "psb":
+        r = parse_psb(data)
+        if r:
+            return r
+    if ext == "xcf":
+        r = parse_xcf(data)
+        if r:
+            return r
     for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font,
                    parse_mobi, parse_ole, parse_riff, parse_voc, parse_au, parse_w64,
                    parse_mkv, parse_flv, parse_swf, parse_ppm, parse_bmp, parse_ico,
-                   parse_dds, parse_tga, parse_pcx, parse_hdr):
+                   parse_dds, parse_tga, parse_pcx, parse_hdr, parse_psb, parse_xcf):
         try:
             r = parser(data)
         except Exception:
