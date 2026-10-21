@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=13`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=14`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1029,8 +1029,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
   register("media", { id: "media", label: "媒体/图像/字体元数据解析器（WAV/PNG/JPG/BMP/ICO/DDS/TGA/PCX/HDR/PPM/PSD/TTF/MKV/FLV/SWF…）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
     "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf", "ppm", "pgm", "pbm", "pnm", "bmp", "ico", "cur", "dds", "tga", "pcx", "hdr"], decompile: metaDecode });
-  register("audio", { id: "audio", label: "音乐元数据引擎（追踪器/芯片音乐/MIDI/MP3/OGG/FLAC/WMA/AAC，浏览器内）", canTranslate: false,
-    formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi", "mid", "midi", "mp3", "ogg", "flac", "wma", "asf", "aac"], decompile: audioDecode });
+  register("audio", { id: "audio", label: "音乐元数据引擎（追踪器/芯片音乐/MIDI/MP3/OGG/FLAC/WMA/AAC/AIFF/WavPack/APE，浏览器内）", canTranslate: false,
+    formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi", "mid", "midi", "mp3", "ogg", "flac", "wma", "asf", "aac", "aiff", "aif", "wv", "wavpack", "ape", "m4a"], decompile: audioDecode });
   register("cad", { id: "cad", label: "CAD 文本实体引擎（DXF/IGES/SAT/STEP，浏览器内）", canTranslate: false,
     formats: ["dxf", "iges", "igs", "sat", "step", "stp"], decompile: cadDecode });
   register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT/FNT/PFB/WOFF2，浏览器内）", canTranslate: false,
@@ -1069,6 +1069,19 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   };
   register("image", { id: "image", label: "TIFF/相机 RAW 头解析引擎（dng/cr2/nef/arw/orf/pef/rw2/srw，浏览器内）", canTranslate: false,
     formats: ["dng", "cr2", "crw", "nef", "arw", "orf", "pef", "rw2", "srw", "tif", "tiff"], decompile: imageDecode });
+  // ---- v2.8.8 新引擎：video（视频容器头解析）----
+  const videoDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["video_tools"]);
+    const n = await writeInput(p, "/axiom/input.vid", file);
+    onLog && onLog("video: 视频容器头解析（avi/mp4/mov/mpeg/m2ts）→ video_tools.py");
+    const r = await p.runPythonAsync("import video_tools\n"
+      + "data = open('/axiom/input.vid','rb').read()\n"
+      + "out = video_tools.parse_video(data, '/axiom/input.vid')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  register("video", { id: "video", label: "视频容器头解析引擎（avi/mp4/mov/m4v/f4v/mpeg/m2ts，浏览器内）", canTranslate: false,
+    formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "ts", "mts"], decompile: videoDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

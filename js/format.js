@@ -74,6 +74,11 @@ const AxiomFormats = (function () {
     // TIFF/相机 RAW
     dng: "image", cr2: "image", crw: "image", nef: "image", arw: "image", orf: "image",
     pef: "image", rw2: "image", srw: "image", tif: "image", tiff: "image",
+    // 视频容器
+    avi: "video", mp4: "video", mov: "video", m4v: "video", f4v: "video",
+    mpeg: "video", mpg: "video", vob: "video", m2ts: "video", ts: "video", mts: "video",
+    // 音频补充（aiff/wavpack/ape/m4a 走 audio）
+    aiff: "audio", aif: "audio", wv: "audio", wavpack: "audio", ape: "audio", m4a: "audio",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",

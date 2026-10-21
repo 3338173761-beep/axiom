@@ -316,6 +316,54 @@ def parse_aac(data):
     return "\n".join(out)
 
 
+def parse_aiff(data):
+    if data[:4] != b"FORM" or data[8:12] != b"AIFF":
+        return None
+    out = ["AIFF 音频"]
+    i = 12
+    while i + 8 <= len(data) and i < min(len(data), 1 << 20):
+        cid = data[i:i + 4]
+        csz = struct.unpack_from(">I", data, i + 4)[0]
+        if cid == b"COMM" and csz >= 18:
+            ch, frames = struct.unpack_from(">HI", data, i + 8)
+            bits = struct.unpack_from(">H", data, i + 14)[0]
+            sr = struct.unpack_from(">I", data, i + 16)[0]
+            out.append("声道: %d  采样率: %d Hz" % (ch, sr))
+            out.append("位深: %d bps  采样帧: %d" % (bits, frames))
+            out.append("时长约: %.1f s" % (frames / sr if sr else 0))
+            break
+        i += 8 + csz + (csz & 1)
+    return "\n".join(out)
+
+
+def parse_wavpack(data):
+    if data[:4] != b"wvpk":
+        return None
+    csize = struct.unpack_from("<I", data, 4)[0]
+    ver = struct.unpack_from("<H", data, 8)[0]
+    total = struct.unpack_from("<I", data, 12)[0]
+    flags = struct.unpack_from("<I", data, 24)[0] if len(data) >= 28 else 0
+    out = ["WavPack 音频"]
+    out.append("版本: %d.%02d" % (ver >> 8, ver & 0xFF))
+    out.append("块大小: %d B  采样帧: %d" % (csize, total))
+    out.append("flags: 0x%08X（含采样率/声道编码）" % flags)
+    return "\n".join(out)
+
+
+def parse_ape(data):
+    if data[:4] != b"MAC ":
+        return None
+    ver = struct.unpack_from("<H", data, 4)[0]
+    ch = struct.unpack_from("<H", data, 12)[0]
+    sr = struct.unpack_from("<I", data, 14)[0]
+    bits = struct.unpack_from("<H", data, 22)[0] if len(data) >= 24 else 0
+    out = ["Monkey's Audio（APE）"]
+    out.append("版本: %d.%02d" % (ver >> 8, ver & 0xFF))
+    out.append("声道: %d  采样率: %d Hz" % (ch, sr))
+    out.append("位深: %d bps" % bits)
+    return "\n".join(out)
+
+
 def parse_audio(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -351,9 +399,21 @@ def parse_audio(data, filename):
         r = parse_aac(data)
         if r:
             return r
+    if ext in ("aiff", "aif"):
+        r = parse_aiff(data)
+        if r:
+            return r
+    if ext in ("wv", "wavpack"):
+        r = parse_wavpack(data)
+        if r:
+            return r
+    if ext == "ape":
+        r = parse_ape(data)
+        if r:
+            return r
     # 魔数兜底
     for parser in (parse_module, parse_chip, parse_midi, parse_mp3, parse_ogg,
-                   parse_flac, parse_asf, parse_aac):
+                   parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape):
         try:
             r = parser(data, filename)
         except Exception:
