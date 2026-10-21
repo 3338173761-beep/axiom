@@ -42,6 +42,15 @@
       els.termBody.appendChild(d);
       els.termBody.scrollTop = els.termBody.scrollHeight;
     },
+    // 喷涌式输出：按间隔快速滚屏（黑客终端效果）
+    flood(lines, cls, gap) {
+      if (!this.on || !els.termBody) return;
+      const arr = Array.isArray(lines) ? lines : [lines];
+      const g = gap || 12;
+      for (let i = 0; i < arr.length; i++) {
+        setTimeout(() => { this.line(arr[i], cls); }, i * g);
+      }
+    },
     sep() { this.line("─".repeat(40), "t-dim"); },
     reset() {
       if (!els.liveTerminal) return;
@@ -166,10 +175,29 @@
     Term.show();
     Term.sep();
     Term.line("> ingesting \"" + file.name + "\" (" + fmtSize(file.size) + ")", "t-ok");
-    Term.line("> sniffing magic bytes / header signature …", "t-info");
+    Term.line("> dumping first 96 bytes of input stream …", "t-info");
+    // 真实字节 hex dump（前 96 字节，16 字节/行）
+    const headBytes = new Uint8Array(await file.slice(0, 96).arrayBuffer());
+    const hexRows = [];
+    for (let i = 0; i < headBytes.length; i += 16) {
+      const chunk = Array.from(headBytes.slice(i, i + 16));
+      const hex = chunk.map(b => b.toString(16).padStart(2, "0").toUpperCase()).join(" ");
+      const asc = chunk.map(b => (b >= 32 && b < 127 ? String.fromCharCode(b) : ".")).join("");
+      hexRows.push(String(i).padStart(4, "0") + "  " + hex.padEnd(47, " ") + " |" + asc + "|");
+    }
+    Term.flood(hexRows, "t-dim", 10);
+    Term.flood([
+      "> scanning signature registry (620 entries) …",
+      "> probing magic bytes / header signature …",
+    ], "t-info", 14);
 
     log("正在识别格式…");
     currentInfo = await AxiomFormats.identify(file);
+    Term.flood([
+      "> sig match → " + currentInfo.id + " (" + currentInfo.ext + ")",
+      "> label: " + currentInfo.label,
+      "> desc: " + currentInfo.desc,
+    ], "t-ok", 16);
     Term.line("> format table hit: " + currentInfo.id + " · engine=" + (currentInfo.engine || "none"), "t-ai");
     showInfo(currentInfo);
 
@@ -238,14 +266,32 @@
     setBar(5);
     const t0 = performance.now();
     try {
-      Term.line("> runtime: loading pyodide runtime (first load downloads, cached after) …", "t-ai");
+      // Pyodide 加载步骤（常量与 engines.js 一致：v0.28.0 + jsdelivr CDN）
+      Term.flood([
+        "> runtime: Pyodide v0.28.0 · WASM ~10MB",
+        ">   source: https://cdn.jsdelivr.net/pyodide/v0.28.0/full/pyodide.js",
+        ">   injecting <script> tag …",
+        ">   fetching runtime bundle …",
+        ">   bootstrapping WASM …",
+        ">   initializing Python env …",
+      ], "t-ai", 10);
       log("正在准备引擎…（首次加载需下载 Pyodide 运行时，之后有缓存）");
       await AxiomEngines.loadPyodideRuntime();
       setBar(35);
-      Term.line("> decompiler: " + engine.label + " :: " + currentInfo.id, "t-ok");
+      Term.flood([
+        "> runtime ready",
+        "> engine bound: " + engine.label + " :: " + currentInfo.id,
+        "> feeding input buffer → engine …",
+      ], "t-ok", 12);
       currentSrc = await engine.decompile(currentFile, log);
       decompileMs = Math.round(performance.now() - t0);
-      Term.line("> done in " + decompileMs + " ms · " + String(currentSrc).split("\n").length + " lines extracted", "t-ok");
+      Term.flood([
+        "> done in " + decompileMs + " ms",
+        "> source lines: " + String(currentSrc).split("\n").length,
+        "> chars: " + String(currentSrc).length,
+        "> bytes consumed: " + currentFile.size,
+        "> pipeline status: PASS",
+      ], "t-ok", 14);
       setBar(95);
       showResult(currentSrc, null, decompileMs);
       setBar(100);
@@ -385,12 +431,20 @@
     try {
       const segs = engine.extractTextFromSource(currentSrc);
       if (!segs.length) { alert("未在反编译结果中找到可翻译文本段。"); return; }
-      Term.line("> AI pipeline: extracted " + segs.length + " text segments · target=" + els.langTo.value, "t-ai");
+      Term.flood([
+        "> AI: extracting translatable segments …",
+        "> AI: segs=" + segs.length,
+        "> AI: llm=DeepSeek · " + els.langFrom.value + " → " + els.langTo.value,
+        "> AI: context-aware translate …",
+      ], "t-ai", 14);
       log("提取到 " + segs.length + " 段对话/文本，开始语境翻译…");
       const translations = await AxiomTranslate.translateSegments(segs, els.langFrom.value, els.langTo.value, log);
       currentTrans = AxiomTranslate.buildTranslatedSource(currentSrc, segs, translations);
       const lines = String(currentTrans).split("\n").length;
-      Term.line("> translated source rebuilt · " + lines + " lines", "t-ok");
+      Term.flood([
+        "> AI: rebuild translated source · " + lines + " lines",
+        "> AI: pipeline PASS",
+      ], "t-ok", 14);
       els.resultStats.innerHTML = `${lines} 行 · ${currentTrans.length.toLocaleString()} 字符 · 已翻译`;
       renderCode(els.transView, currentTrans, true);
       els.tabTrans.classList.remove("hidden");
