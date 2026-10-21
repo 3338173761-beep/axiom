@@ -610,16 +610,16 @@ body {
 @keyframes hazardBlink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .25; } }
 
 /* ============ 切换按钮 v2：低调、fixed 底部、hover 才亮 ============ */
-/* 固定 168px 宽。绕开 WebView 渲染 bug：不用 flex / 不用 transform 居中 / 不用 letter-spacing /
-   图标绝对定位不参与布局 —— 中文四字纯居中渲染，任何 DPR 下「超频协议」都完整 */
+/* 固定 144px 宽 + 斜切角。文字居中（56px 四字 + 40px padding，距切角 24px+），
+   切角只切按钮外框角落永不碰文字；纯 block 布局绕开 WebView 亚像素吞字 bug */
 .swap-btn {
   position: fixed; left: 50%; bottom: 14px; z-index: 60;
-  margin-left: -84px;
-  width: 168px; min-width: 168px; height: 38px;
+  margin-left: -72px;
+  width: 144px; min-width: 144px; height: 38px;
   padding: 0 20px; box-sizing: border-box;
   background: linear-gradient(160deg, rgba(10,14,23,.92), rgba(7,18,28,.88));
   border: 1px solid rgba(0,255,136,.45);
-  clip-path: none;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   box-shadow: 0 0 14px rgba(0,255,136,.16), inset 0 0 12px rgba(0,212,255,.06);
   opacity: .55;
   cursor: pointer;
@@ -643,12 +643,6 @@ body {
 .swap-btn:hover { opacity: 1; border-color: var(--cyber-primary); box-shadow: 0 0 26px rgba(0,255,136,.45), inset 0 0 14px rgba(0,212,255,.12); }
 .swap-btn:active { transform: scale(.96); }
 .swap-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--cyber-cyan), 0 0 26px rgba(0,255,136,.45); }
-.swap-btn__disc {
-  width: 22px; height: 22px; border-radius: 50%; flex: none;
-  background: conic-gradient(rgba(0,255,136,.9) 0 8deg, transparent 8deg 45deg, rgba(0,255,136,.9) 45deg 53deg, transparent 53deg 90deg, rgba(0,212,255,.8) 90deg 98deg, transparent 98deg 135deg, rgba(0,255,136,.9) 135deg 143deg, transparent 143deg 180deg, rgba(0,212,255,.8) 180deg 188deg, transparent 188deg 225deg, rgba(0,255,136,.9) 225deg 233deg, transparent 233deg 270deg, rgba(0,212,255,.8) 270deg 278deg, transparent 278deg 315deg, rgba(0,255,136,.9) 315deg 323deg, transparent 323deg 360deg);
-  -webkit-mask: radial-gradient(circle, transparent 32%, #000 34%);
-  mask: radial-gradient(circle, transparent 32%, #000 34%);
-}
 .swap-btn__shell::before, .swap-btn__shell::after {
   content: ""; position: absolute; top: 0; bottom: 0; width: 50%;
   background: linear-gradient(160deg, #0E1626, #07121C);
@@ -667,8 +661,8 @@ body {
 .swap-btn.m-hide { opacity: 0 !important; pointer-events: none !important; transform: scale(.82); box-shadow: none !important; }
 /* 激活后常驻：更小更低调，hover 亮起 */
 .swap-btn.m-oc {
-  width: 168px; min-width: 168px; height: 34px; opacity: .3; font-size: 12.5px;
-  padding: 0 20px; clip-path: none;
+  width: 144px; min-width: 144px; height: 34px; opacity: .3; font-size: 12.5px;
+  padding: 0 20px; clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
   box-shadow: 0 0 8px rgba(0,255,136,.1), inset 0 0 8px rgba(0,212,255,.04);
 }
 .swap-btn.m-oc:hover { opacity: 1; box-shadow: 0 0 20px rgba(0,255,136,.4); }
@@ -1064,9 +1058,9 @@ body {
   .cmd-inner { font-size: 13.5px; }
 
   /* Bug3 终极修复：真机仍裁「议」→ 宽度自适应内容（auto）+ 最小宽度兜底 + 去 clip-path */
-  .swap-btn { width: auto; min-width: 158px; height: 38px; padding: 0 20px; box-sizing: border-box; clip-path: none; font-size: 13.5px; letter-spacing: 0; }
+  .swap-btn { width: 144px; min-width: 144px; height: 38px; padding: 0 20px; box-sizing: border-box; clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); font-size: 13.5px; letter-spacing: 0; }
   .swap-btn__label { letter-spacing: 0; white-space: nowrap; overflow: visible; display: inline-block; }
-  .swap-btn.m-oc { width: auto; min-width: 168px; height: 34px; font-size: 12px; }
+  .swap-btn.m-oc { width: 144px; min-width: 144px; height: 34px; font-size: 12px; clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px)); }
   .swap-btn.m-oc .oc-en { letter-spacing: .04em; }
 
   /* Bug2 修复：顶部警示条窄屏自动换行两行、居中、高度自适应不裁切 */
@@ -1244,3 +1238,41 @@ html[data-env="mobile"] .live-term { display: none !important; }
 .term-body .t-dim  { color: #4E7A6A; }
 .term-on { animation: termIn .28s var(--ease-decel) both; }
 @keyframes termIn { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---- 红色报错收尾（超频协议：超频=危险→系统报错，v2.8.0） ---- */
+.oc-errflash {
+  position: fixed; inset: 0; z-index: 104;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px;
+  background: rgba(2,3,8,.92);
+  animation: errflashIn .12s steps(2) both;
+  text-align: center;
+}
+.oc-errflash__big {
+  font-family: Orbitron, "Share Tech Mono", monospace;
+  font-size: clamp(22px, 5.5vw, 40px); font-weight: 900; letter-spacing: .06em;
+  color: #FF4D5E;
+  text-shadow: 0 0 18px rgba(255,77,94,.7), 0 0 42px rgba(255,77,94,.35);
+  animation: errJitter .16s steps(3) infinite;
+}
+.oc-errflash__sub {
+  font-family: Orbitron, "Share Tech Mono", monospace;
+  font-size: clamp(11px, 2.6vw, 15px); letter-spacing: .18em;
+  color: #FFB020;
+  text-shadow: 0 0 10px rgba(255,176,32,.5);
+}
+.oc-errflash__code {
+  font-family: "Share Tech Mono", Consolas, monospace;
+  font-size: clamp(10px, 2.2vw, 12px); letter-spacing: .08em;
+  color: #7DE8FF; opacity: .75;
+}
+.oc-errflash.off { animation: errflashOut .3s var(--ease-in) forwards; }
+@keyframes errflashIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes errflashOut { to { opacity: 0; transform: scale(1.06); filter: blur(4px); } }
+@keyframes errJitter {
+  0% { transform: translate(0,0) skewX(0); }
+  25% { transform: translate(-2px,1px) skewX(-1.5deg); }
+  50% { transform: translate(2px,-1px) skewX(1.5deg); }
+  75% { transform: translate(-1px,2px) skewX(0); }
+  100% { transform: translate(0,0) skewX(0); }
+}

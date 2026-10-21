@@ -70,16 +70,33 @@
     frame: function (t) {
       var el = t - this.t0;
       if (el > this.dur) { this.stop(); return; }
-      var ctx = this.ctx, W = this.W, H = this.H;
+      // 每帧同步视口尺寸：移动端地址栏收起/展开会改变 innerHeight，画布跟新避免底部黑条
+      var W = window.innerWidth, H = window.innerHeight;
+      if (W !== this.W || H !== this.H) {
+        this.W = W; this.H = H;
+        this.cv.width = W; this.cv.height = H;
+        this.cv.style.width = W + 'px'; this.cv.style.height = H + 'px';
+      }
+      var ctx = this.ctx;
       ctx.fillStyle = 'rgba(2,3,8,0.30)';
       ctx.fillRect(0, 0, W, H);
       var c1, c2, c3;
       if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; c3 = '255,255,255'; }
       else { c1 = '0,255,136'; c2 = '255,77,94'; c3 = '209,247,255'; }
       var self = this;
-      // 1) 乱码字符风暴：密度翻倍、字号更大、速度更快（条带撕裂感）
+      // 0) 全屏色相冲屏：随机概率整屏染色（错乱感）
+      if (Math.random() < 0.06) {
+        ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c2) + ',0.13)';
+        ctx.fillRect(0, 0, W, H);
+      }
+      // 0b) 白帧闪切：偶尔一帧全屏半透明白
+      if (Math.random() < 0.02) {
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        ctx.fillRect(0, 0, W, H);
+      }
+      // 1) 乱码字符风暴：密度按屏幕面积自适应（手机端自动加倍不再稀疏）
       ctx.font = (16 + Math.random() * 26) + 'px "Share Tech Mono", monospace';
-      var rows = 34 + Math.floor(Math.random() * 20);
+      var rows = Math.max(26, Math.round(H / 16));
       for (var i = 0; i < rows; i++) {
         var y = Math.random() * H;
         var x = Math.random() * 60 - 30;
@@ -90,8 +107,8 @@
         ctx.fillStyle = 'rgba(' + rgba + ',' + (0.3 + Math.random() * 0.65) + ')';
         ctx.fillText(str, x, y);
       }
-      // 2) 彩色 glitch 块：数量翻倍（红/青/绿/白 小方块乱闪）
-      var blocks = 22 + Math.floor(Math.random() * 26);
+      // 2) 彩色 glitch 块：数量按面积自适应（红/青/绿/白 小方块乱闪）
+      var blocks = Math.min(72, Math.max(18, Math.round(W * H / 11000)));
       for (var b = 0; b < blocks; b++) {
         var bw = 4 + Math.random() * 80, bh = 2 + Math.random() * 20;
         var bx = Math.random() * W, by = Math.random() * H;
@@ -100,20 +117,21 @@
         ctx.fillRect(bx, by, bw, bh);
       }
       // 3) 白色扫描横线：更频繁更亮
-      if (Math.random() < 0.65) {
+      if (Math.random() < 0.7) {
         ctx.fillStyle = 'rgba(209,247,255,' + (0.35 + Math.random() * 0.55) + ')';
         ctx.fillRect(0, Math.random() * H, W, 1 + Math.random() * 3);
       }
-      // 4) 噪点像素：密度翻倍 + 白色噪点（雪花）
-      for (var p = 0; p < 520; p++) {
+      // 4) 噪点像素：密度按屏幕面积（雪花，手机端不再稀疏不可见）
+      var noiseN = Math.min(1800, Math.max(520, Math.round(W * H / 420)));
+      for (var p = 0; p < noiseN; p++) {
         var pc = Math.random() < 0.5 ? c1 : (Math.random() < 0.3 ? c3 : c2);
         ctx.fillStyle = 'rgba(' + pc + ',' + (0.15 + Math.random() * 0.55) + ')';
         ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
       }
       // 5) 大号错误撕裂字（红调时更频繁 + 双层错位）
-      if (this.palette === 'red' && Math.random() < 0.4) {
+      if (this.palette === 'red' && Math.random() < 0.55) {
         var tx = Math.random() * W * 0.8, ty = 30 + Math.random() * H * 0.8;
-        var fsz = 30 + Math.random() * 48;
+        var fsz = 34 + Math.random() * 50;
         var words = ['ERR', 'FATAL', 'SIGNAL', 'KERNEL', '0xDEAD', 'PANIC', 'CORRUPT'];
         var wd = words[Math.floor(Math.random() * words.length)];
         ctx.font = fsz + 'px Orbitron, "Share Tech Mono", monospace';
@@ -122,15 +140,15 @@
         ctx.fillStyle = 'rgba(255,77,94,' + (0.5 + Math.random() * 0.45) + ')';
         ctx.fillText(wd, tx, ty);
       }
-      // 6) RGB 通道分离叠影（3D 眼镜式红/青错位大字）
-      if (Math.random() < 0.5) {
+      // 6) RGB 通道分离叠影（3D 眼镜式红/青错位大字，更强偏移）
+      if (Math.random() < 0.7) {
         var gx = Math.random() * W * 0.7, gy = Math.random() * H;
         var gs = 24 + Math.random() * 36;
         var gwd = this.CHARS[Math.floor(Math.random() * this.CHARS.length)] +
                   this.CHARS[Math.floor(Math.random() * this.CHARS.length)] +
                   this.CHARS[Math.floor(Math.random() * this.CHARS.length)];
         ctx.font = gs + 'px "Share Tech Mono", monospace';
-        var off = 5 + Math.random() * 12;
+        var off = 8 + Math.random() * 10;
         ctx.fillStyle = 'rgba(' + c1 + ',0.55)';
         ctx.fillText(gwd, gx + off, gy);
         ctx.fillStyle = 'rgba(' + c2 + ',0.55)';
@@ -138,8 +156,8 @@
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
         ctx.fillText(gwd, gx, gy);
       }
-      // 7) 水平撕裂带：整条横带错位偏移（画面被撕开）
-      var bands = 3 + Math.floor(Math.random() * 5);
+      // 7) 水平撕裂带：更多条、更碎（画面被撕开）
+      var bands = 4 + Math.floor(Math.random() * 6);
       for (var bd = 0; bd < bands; bd++) {
         var by0 = Math.random() * H;
         var bh0 = 6 + Math.random() * 34;
@@ -448,6 +466,8 @@
           chain = chain.then(function () { flash(100, 'rgba(209,247,255,0.5)'); return new Promise(function (r) { setTimeout(r, 120); }); });
           // 第三波：红色收敛（报错前最后一击）
           chain = chain.then(function () { storm.start(420, 'red'); return new Promise(function (r) { setTimeout(r, 440); }); });
+          // 红色报错收尾：全屏黑 + 红色艺术字（超频危险 → 系统报错）
+          chain = chain.then(function () { return self.errFlash(); });
         }
       });
       // 回车模拟：扫描线 + 光标急闪
@@ -490,6 +510,28 @@
     skip: function () {
       if (!state.entering) return;
       this.finishEnter();
+    },
+    /* 红色报错收尾：全屏黑 + 红色艺术字（超频协议命名由来：超频=危险→系统报错） */
+    errFlash: function () {
+      var d = document.createElement('div');
+      d.className = 'oc-errflash';
+      var big = document.createElement('span');
+      big.className = 'oc-errflash__big';
+      big.textContent = 'CRITICAL OVERCLOCK FAILURE';
+      var sub = document.createElement('span');
+      sub.className = 'oc-errflash__sub';
+      sub.textContent = 'FREQUENCY LIMIT EXCEEDED · SYSTEM DEGRADED';
+      var code = document.createElement('span');
+      code.className = 'oc-errflash__code';
+      code.textContent = 'ERR: 0xDEADBEEF / OC-STACK-OVERFLOW';
+      d.appendChild(big); d.appendChild(sub); d.appendChild(code);
+      document.body.appendChild(d);
+      return new Promise(function (r) {
+        setTimeout(function () {
+          d.classList.add('off');
+          setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); r(); }, 400);
+        }, 620);
+      });
     }
   };
 
