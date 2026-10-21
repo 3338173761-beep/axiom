@@ -206,6 +206,116 @@ def parse_midi(data, filename):
     return None
 
 
+def parse_mp3(data):
+    if len(data) < 4:
+        return None
+    out = None
+    b = 0
+    if data[:3] == b"ID3":
+        sz = (data[6] << 21) | (data[7] << 14) | (data[8] << 7) | data[9]
+        out = ["MP3（ID3v2 标签 + MPEG 音频）"]
+        out.append("ID3v2.%d，标签 %d B" % (data[3], sz + 10))
+        b = 10 + sz
+    for i in range(b, min(len(data) - 4, 4096)):
+        if data[i] == 0xFF and (data[i + 1] & 0xE0) == 0xE0:
+            b = i
+            break
+    else:
+        if out is None:
+            return None
+        b = len(data)
+    if b < len(data) and data[b] == 0xFF and (data[b + 1] & 0xE0) == 0xE0:
+        if out is None:
+            out = ["MP3（MPEG 帧）"]
+        h = data[b + 1]
+        ver = {0: "MPEG 2.5", 2: "MPEG 2", 3: "MPEG 1"}.get((h >> 3) & 3, "?")
+        layer = 4 - ((h >> 1) & 3)
+        bitrate_idx = (data[b + 2] >> 4) & 0xF
+        sr_idx = (data[b + 2] >> 2) & 3
+        out.append("编码: %s Layer %d" % (ver, layer))
+        br = {3: {1: 32, 2: 64, 3: 96, 4: 128, 5: 160, 6: 192, 7: 224, 8: 256, 9: 288, 10: 320},
+              2: {1: 32, 2: 48, 3: 56, 4: 64, 5: 80, 6: 96, 7: 112, 8: 128, 9: 160, 10: 192}}.get(layer, {}).get(bitrate_idx)
+        if br:
+            out.append("码率: %d kbps" % br)
+        sr = {0: 44100, 1: 48000, 2: 32000}.get(sr_idx)
+        if sr and ver != "MPEG 2.5":
+            out.append("采样率: %d Hz" % (sr // (2 if ver == "MPEG 2" else 1)))
+    return "\n".join(out) if out else None
+
+
+def parse_ogg(data):
+    if data[:4] != b"OggS" or len(data) < 27:
+        return None
+    serial = struct.unpack_from("<I", data, 14)[0]
+    page_seq = struct.unpack_from("<I", data, 18)[0]
+    segs = data[26]
+    out = ["Ogg 容器"]
+    out.append("序列号: %08X  页序号: %d" % (serial, page_seq))
+    out.append("段表: %d 段" % segs)
+    payload = data[27 + segs:]
+    if payload.startswith(b"FLAC") or payload.startswith(b"\x7fFLAC"):
+        out.append("编码: FLAC")
+    elif payload.startswith(b"OpusHead"):
+        out.append("编码: Opus")
+    elif payload.startswith(b"\x01vorbis"):
+        out.append("编码: Vorbis")
+    elif payload.startswith(b"Theora"):
+        out.append("编码: Theora")
+    else:
+        out.append("编码: 未识别")
+    return "\n".join(out)
+
+
+def parse_flac(data):
+    if data[:4] != b"fLaC" or len(data) < 42:
+        return None
+    if data[4] != 0:
+        return None
+    size = (data[5] << 16) | (data[6] << 8) | data[7]
+    if size < 34 or 8 + size > len(data):
+        return None
+    s = data[8:8 + 34]
+    val = int.from_bytes(s[:4], byteorder="big")
+    sr = (val >> 8) & 0xFFFFF
+    ch = ((val >> 5) & 0x7) + 1
+    bps = (val & 0x1F) + 1
+    out = ["FLAC 音频"]
+    out.append("采样率: %d Hz" % sr)
+    out.append("声道: %d" % ch)
+    out.append("位深: %d bps" % bps)
+    return "\n".join(out)
+
+
+def parse_asf(data):
+    # ASF/WMA：对象 GUID 头 + 文件大小
+    asf_guid = b"\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9\x00\xaa\x00\x62\xce\x6c"
+    if data[:16] != asf_guid or len(data) < 30:
+        return None
+    size = struct.unpack_from("<Q", data, 16)[0]
+    num = struct.unpack_from("<I", data, 24)[0]
+    out = ["ASF 容器（WMA/WMV）"]
+    out.append("文件大小字段: %d B" % size)
+    out.append("对象数: %d" % num)
+    return "\n".join(out)
+
+
+def parse_aac(data):
+    if len(data) < 7 or data[0] != 0xFF or (data[1] & 0xF6) != 0xF0:
+        return None
+    profile = (data[2] >> 6) & 3
+    sr_idx = (data[2] >> 2) & 0xF
+    ch = ((data[2] & 1) << 2) | ((data[3] >> 6) & 3)
+    fr = ((data[3] & 3) << 11) | (data[4] << 3) | ((data[5] >> 5) & 7)
+    out = ["AAC（ADTS 帧）"]
+    out.append("Profile: %s" % {0: "Main", 1: "LC", 2: "SSR", 3: "LTP"}.get(profile, "?"))
+    sr = {0: 96000, 1: 88200, 2: 64000, 3: 48000, 4: 44100, 5: 32000, 6: 24000,
+          7: 22050, 8: 16000, 9: 12000, 10: 11025, 11: 8000, 12: 7350}.get(sr_idx)
+    out.append("采样率: %s Hz" % (sr if sr else "?"))
+    out.append("声道: %d" % ch)
+    out.append("帧长: %d B" % fr)
+    return "\n".join(out)
+
+
 def parse_audio(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -221,8 +331,29 @@ def parse_audio(data, filename):
         r = parse_midi(data, filename)
         if r:
             return r
+    if ext == "mp3":
+        r = parse_mp3(data)
+        if r:
+            return r
+    if ext == "ogg":
+        r = parse_ogg(data)
+        if r:
+            return r
+    if ext == "flac":
+        r = parse_flac(data)
+        if r:
+            return r
+    if ext in ("wma", "asf"):
+        r = parse_asf(data)
+        if r:
+            return r
+    if ext == "aac":
+        r = parse_aac(data)
+        if r:
+            return r
     # 魔数兜底
-    for parser in (parse_module, parse_chip, parse_midi):
+    for parser in (parse_module, parse_chip, parse_midi, parse_mp3, parse_ogg,
+                   parse_flac, parse_asf, parse_aac):
         try:
             r = parser(data, filename)
         except Exception:

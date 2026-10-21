@@ -67,6 +67,13 @@ const AxiomFormats = (function () {
     // 游戏主机 ROM
     nes: "rom", gb: "rom", gbc: "rom", gba: "rom", nds: "rom", n64: "rom", z64: "rom", v64: "rom",
     sfc: "rom", smc: "rom", fds: "rom", cia: "rom",
+    // 音频流（mp3/ogg/flac/wma/aac 走 audio）
+    mp3: "audio", ogg: "audio", flac: "audio", wma: "audio", asf: "audio", aac: "audio",
+    // 字体补充（fnt/fon/pfb/woff2 走 font）
+    fnt: "font", fon: "font", pfb: "font", woff2: "font",
+    // TIFF/相机 RAW
+    dng: "image", cr2: "image", crw: "image", nef: "image", arw: "image", orf: "image",
+    pef: "image", rw2: "image", srw: "image", tif: "image", tiff: "image",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",

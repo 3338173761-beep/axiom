@@ -131,6 +131,68 @@ def parse_eot(data):
     return "\n".join(out)
 
 
+def parse_fnt(data):
+    # Windows FNT：FONTINFO 头 0x00 版本(2B) 0x02 总大小(4B) 0x42 类型(2B) 0x44 点阵(2B)
+    if len(data) < 0x4C:
+        return None
+    ver = struct.unpack_from("<H", data, 0)[0]
+    if ver > 0x300:
+        return None
+    total = struct.unpack_from("<I", data, 2)[0]
+    if total == 0 or total > 64 * 1024 * 1024:
+        return None
+    points = struct.unpack_from("<H", data, 0x44)[0]
+    pix_h = struct.unpack_from("<H", data, 0x4A)[0]
+    out = ["Windows FNT 位图字体"]
+    out.append("头版本: 0x%X" % ver)
+    out.append("点阵: %d pt" % points)
+    out.append("像素高: %d" % pix_h)
+    out.append("文件大小字段: %d B" % total)
+    return "\n".join(out)
+
+
+def parse_pfb(data):
+    # Type1 PFB：0x80 0x01 长度 + 段
+    if data[:2] != b"\x80\x01" or len(data) < 6:
+        return None
+    seg = struct.unpack_from("<I", data, 2)[0]
+    text = data[6:6 + seg].decode("latin1", "replace")
+    name = ""
+    for ln in text.splitlines()[:40]:
+        if ln.startswith("/FontName"):
+            parts = ln.split()
+            name = parts[1].replace("def", "").strip() if len(parts) > 1 else ""
+            break
+    out = ["PostScript Type1 字体（PFB）"]
+    out.append("首段: %d B" % seg)
+    if name:
+        out.append("字体名: " + name)
+    else:
+        fam = ""
+        for ln in text.splitlines()[:80]:
+            if ln.startswith("/FamilyName"):
+                fam = ln.replace("/FamilyName", "").strip().rstrip("def").strip()
+                break
+        if fam:
+            out.append("家族: " + fam)
+    return "\n".join(out)
+
+
+def parse_woff2(data):
+    if data[:4] != b"wOF2" or len(data) < 48:
+        return None
+    ver = struct.unpack_from("<I", data, 4)[0]
+    flavor = data[8:12]
+    num_tables = struct.unpack_from("<H", data, 12)[0]
+    size = struct.unpack_from("<I", data, 16)[0]
+    out = ["WOFF2 字体"]
+    out.append("字体版本: 0x%X" % ver)
+    out.append("flavor: " + flavor.decode("latin1"))
+    out.append("表数: %d" % num_tables)
+    out.append("解压后大小: %d B" % size)
+    return "\n".join(out)
+
+
 def parse_font(data, filename):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
@@ -150,7 +212,22 @@ def parse_font(data, filename):
         r = parse_eot(data)
         if r:
             return r
-    for parser in (parse_woff, parse_collection, parse_pfm, parse_eot):
+    if ext == "fnt":
+        r = parse_fnt(data)
+        if r:
+            return r
+    if ext == "pfb":
+        r = parse_pfb(data)
+        if r:
+            return r
+    if ext == "woff2":
+        r = parse_woff2(data)
+        if r:
+            return r
+    if ext == "fon":
+        return "Windows FON（NE 资源字体）：%d B" % len(data)
+    for parser in (parse_woff, parse_collection, parse_pfm, parse_eot,
+                   parse_fnt, parse_pfb, parse_woff2):
         try:
             r = parser(data)
         except Exception:

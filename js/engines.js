@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=12`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=13`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1029,12 +1029,12 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
   register("media", { id: "media", label: "媒体/图像/字体元数据解析器（WAV/PNG/JPG/BMP/ICO/DDS/TGA/PCX/HDR/PPM/PSD/TTF/MKV/FLV/SWF…）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
     "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf", "ppm", "pgm", "pbm", "pnm", "bmp", "ico", "cur", "dds", "tga", "pcx", "hdr"], decompile: metaDecode });
-  register("audio", { id: "audio", label: "音乐元数据引擎（追踪器 IT/MOD/S3M/XM、芯片音乐 VGM/VGZ/PSF、MIDI KAR/RMI/XMI，浏览器内）", canTranslate: false,
-    formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi"], decompile: audioDecode });
+  register("audio", { id: "audio", label: "音乐元数据引擎（追踪器/芯片音乐/MIDI/MP3/OGG/FLAC/WMA/AAC，浏览器内）", canTranslate: false,
+    formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi", "mid", "midi", "mp3", "ogg", "flac", "wma", "asf", "aac"], decompile: audioDecode });
   register("cad", { id: "cad", label: "CAD 文本实体引擎（DXF/IGES/SAT/STEP，浏览器内）", canTranslate: false,
     formats: ["dxf", "iges", "igs", "sat", "step", "stp"], decompile: cadDecode });
-  register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT，浏览器内）", canTranslate: false,
-    formats: ["woff", "ttc", "otc", "pfm", "eot"], decompile: fontDecode });
+  register("font", { id: "font", label: "字体容器引擎（WOFF/TTC/OTC/PFM/EOT/FNT/PFB/WOFF2，浏览器内）", canTranslate: false,
+    formats: ["woff", "ttc", "otc", "pfm", "eot", "fnt", "fon", "pfb", "woff2"], decompile: fontDecode });
   register("daw", { id: "daw", label: "DAW 工程引擎（Ableton Live als / LMMS mmpz / Audacity aup3，浏览器内）", canTranslate: false,
     formats: ["als", "mmpz", "aup3"], decompile: dawDecode });
   register("ebook", { id: "ebook", label: "电子书容器引擎（PalmDB pdb/prc、Palm Markup pml，浏览器内）", canTranslate: false,
@@ -1056,6 +1056,19 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   };
   register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（nes/gb/gba/nds/n64/sfc/smc/fds/cia，浏览器内）", canTranslate: false,
     formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia"], decompile: romDecode });
+  // ---- v2.8.7 新引擎：image（TIFF/相机 RAW 头解析）----
+  const imageDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["image_tools"]);
+    const n = await writeInput(p, "/axiom/input.img", file);
+    onLog && onLog("image: TIFF/相机 RAW 头解析（dng/cr2/nef/arw/orf/pef/rw2/srw）→ image_tools.py");
+    const r = await p.runPythonAsync("import image_tools\n"
+      + "data = open('/axiom/input.img','rb').read()\n"
+      + "out = image_tools.parse_image_raw(data, '/axiom/input.img')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  register("image", { id: "image", label: "TIFF/相机 RAW 头解析引擎（dng/cr2/nef/arw/orf/pef/rw2/srw，浏览器内）", canTranslate: false,
+    formats: ["dng", "cr2", "crw", "nef", "arw", "orf", "pef", "rw2", "srw", "tif", "tiff"], decompile: imageDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();
