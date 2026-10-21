@@ -389,9 +389,16 @@ def parse_sid(data):
     if data[:4] != b"PSID":
         return None
     ver = struct.unpack_from(">H", data, 4)[0]
-    n = struct.unpack_from(">H", data, 6)[0]
+    n = struct.unpack_from(">H", data, 14)[0]
     out = ["Commodore 64 SID 音乐"]
     out.append("版本: %d.%d  曲数: %d" % (ver >> 8, ver & 0xFF, n))
+    if len(data) >= 86:
+        name = data[22:54].split(b"\x00")[0].decode("latin1", "replace").strip()
+        author = data[54:86].split(b"\x00")[0].decode("latin1", "replace").strip()
+        if name:
+            out.append("曲名: " + name)
+        if author:
+            out.append("作者: " + author)
     return "\n".join(out)
 
 
@@ -520,12 +527,16 @@ def parse_audio(data, filename):
         r = parse_ape(data)
         if r:
             return r
-    if ext in ("gbs", "gym", "sid", "spc", "ac3", "amr", "dts", "tta", "tak", "mpc", "vqf", "snd", "ogm", "ogv", "mogg"):
+    if ext in ("gbs", "gym", "sid", "spc", "ac3", "amr", "dts", "tta", "tak", "mpc", "vqf", "snd"):
         r = {"gbs": parse_gbs, "gym": parse_gym, "sid": parse_sid, "spc": parse_spc,
              "ac3": parse_ac3, "amr": parse_amr, "dts": parse_dts, "tta": parse_tta,
              "tak": parse_tak, "mpc": parse_mpc, "vqf": parse_vqf, "snd": parse_snd}[ext](data)
         if r:
             return r
+    if ext in ("ogm", "ogv", "mogg"):
+        r = parse_ogg(data)
+        if r:
+            return "Ogg 容器（%s）\n%s" % (ext, r)
     # 魔数兜底
     for parser in (parse_module, parse_chip, parse_midi, parse_mp3, parse_ogg,
                    parse_flac, parse_asf, parse_aac, parse_aiff, parse_wavpack, parse_ape,

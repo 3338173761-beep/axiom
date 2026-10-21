@@ -55,6 +55,7 @@ const AxiomFormats = (function () {
     mhtml: "doc", mht: "doc", dif: "doc", slk: "doc",
     xls: "doc", xla: "doc", xlt: "doc", xlw: "doc", et: "doc", ett: "doc",
     xlsb: "doc", wk1: "doc", wk3: "doc", wks: "doc", wb2: "doc",
+    numbers: "doc", keynote: "doc",
     // DAW 工程引擎
     als: "daw", mmpz: "daw", aup3: "daw",
     // 电子书容器引擎
