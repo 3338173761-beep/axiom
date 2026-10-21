@@ -105,7 +105,7 @@ const AxiomEngines = (function () {
         p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py");
       } catch (e) {}
       try { p.FS.mkdir("/axiom/py"); } catch (e) {}
-      const resp = await fetch(`${PY_BASE}${name}.py?v=6`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=7`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);

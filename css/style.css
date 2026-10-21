@@ -610,13 +610,15 @@ body {
 @keyframes hazardBlink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .25; } }
 
 /* ============ 切换按钮 v2：低调、fixed 底部、hover 才亮 ============ */
+/* 宽度自适应内容 + 最小兜底 + 无 clip 裁切：保证任何视口/字号下「超频协议」四字完整 */
 .swap-btn {
   position: fixed; left: 50%; bottom: 14px; z-index: 60;
   transform: translateX(-50%);
-  width: 132px; height: 38px;
+  width: auto; min-width: 158px; height: 38px;
+  padding: 0 20px; box-sizing: border-box;
   background: linear-gradient(160deg, rgba(10,14,23,.92), rgba(7,18,28,.88));
   border: 1px solid rgba(0,255,136,.45);
-  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  clip-path: none;
   box-shadow: 0 0 14px rgba(0,255,136,.16), inset 0 0 12px rgba(0,212,255,.06);
   opacity: .55;
   cursor: pointer;
@@ -626,6 +628,7 @@ body {
   touch-action: manipulation;
   transition: opacity .25s var(--ease-mech), box-shadow .25s var(--ease-mech), border-color .25s var(--ease-mech);
 }
+.swap-btn__label { white-space: nowrap; overflow: visible; display: inline-block; }
 .swap-btn:hover { opacity: 1; border-color: var(--cyber-primary); box-shadow: 0 0 26px rgba(0,255,136,.45), inset 0 0 14px rgba(0,212,255,.12); }
 .swap-btn:active { transform: translateX(-50%) scale(.96); }
 .swap-btn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--cyber-cyan), 0 0 26px rgba(0,255,136,.45); }
@@ -653,7 +656,8 @@ body {
 .swap-btn.m-hide { opacity: 0 !important; pointer-events: none !important; transform: translateX(-50%) scale(.82); box-shadow: none !important; }
 /* 激活后常驻：更小更低调，hover 亮起 */
 .swap-btn.m-oc {
-  width: 150px; height: 34px; opacity: .3; font-size: 12.5px;
+  width: auto; min-width: 168px; height: 34px; opacity: .3; font-size: 12.5px;
+  padding: 0 20px; clip-path: none;
   box-shadow: 0 0 8px rgba(0,255,136,.1), inset 0 0 8px rgba(0,212,255,.04);
 }
 .swap-btn.m-oc:hover { opacity: 1; box-shadow: 0 0 20px rgba(0,255,136,.4); }
