@@ -14,9 +14,22 @@ const AxiomFormats = (function () {
     exe: "dotnet", dll: "dotnet",
     so: "bin", elf: "bin", o: "bin", bin: "bin", wasm: "bin", sys: "bin",
     // 新引擎：PDF / SQLite / ISO / 媒体-字体-容器元数据（msi 为 OLE 复合文档，不再误映射 dotnet）
-    pdf: "pdf", sqlite: "sqlite", db: "sqlite", iso: "iso",
+    pdf: "pdf", sqlite: "sqlite", db: "sqlite", dbf: "sqlite", sqlite3: "sqlite", sqlitedb: "sqlite", iso: "iso",
     wav: "media", png: "media", jpg: "media", jpeg: "media", gif: "media",
     psd: "media", ttf: "media", otf: "media", mobi: "media", msi: "media",
+    // 媒体引擎扩充：音频容器 / 游戏音频 / 视频容器
+    jfif: "media", wave: "media", sf2: "media", dls: "media", fxb: "media", fxp: "media",
+    voc: "media", w64: "media", au: "media", mkv: "media", flv: "media", swf: "media",
+    // 加密歌词引擎（时间轴还原 → 可翻译）
+    krc: "lyric", qrc: "lyric", yrc: "lyric", trc: "lyric",
+    // 邮件/日历/通讯录引擎（可翻译）
+    eml: "mail", mbox: "mail", emlx: "mail", ics: "mail", vcf: "mail",
+    // 游戏资源包 / 设计源文件引擎
+    vpk: "game", wad: "game", ktx: "game", sketch: "game", kra: "game",
+    // 3D 模型引擎
+    obj: "model", stl: "model", ply: "model", gltf: "model", glb: "model", dae: "model", off: "model",
+    // 乐谱 / 版式 / 数据 → 文档引擎
+    mscz: "doc", mscx: "doc", musx: "doc", musicxml: "doc", xps: "doc", oxps: "doc", json5: "doc",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
@@ -64,7 +77,16 @@ const AxiomFormats = (function () {
       "authors", "copying", "license", "todo", "notes", "readme", "contributing", "security",
       // 歌声合成 / 音乐工程（文本型：可直接读取 + 翻译歌词）
       "ust", "ustx", "vsq", "vsqx", "vpr", "s5p", "svp", "ccs", "ccst", "acep", "ace", "ds", "dspx",
-      "ufdata", "musicxml", "mxl", "ly", "lily", "lilypond", "abc", "tja", "f2n", "osu"];
+      "ufdata", "musicxml", "mxl", "ly", "lily", "lilypond", "abc", "tja", "f2n", "osu",
+      // 源码类（翻译级，纯文本直读）
+      "cjs", "cc", "cxx", "hh", "phtml", "pm", "asm", "s", "cob", "cbl", "pp", "lsp", "el",
+      "fs", "nim", "zig", "v", "cr", "odin",
+      // 脚本类
+      "pyw", "csx", "bash", "zsh", "psm1", "tcl", "awk", "sed",
+      // 纯文本 / 标记 / 元文本
+      "text", "markdown", "rst", "bib", "sty", "cls", "jsonl",
+      // 其他文本型格式（直达阅读）
+      "psd1", "url", "ccd", "xbm", "xpm", "pfa", "ksc", "minipsf", "ram", "sfz", "rmd", "puml", "nn"];
     for (const e of more) TEXT_EXTS.add(e);
   })();
 
@@ -185,7 +207,7 @@ const AxiomFormats = (function () {
     let id, engine, canTranslate;
     if (KNOWN_ENGINE[ext]) {
       id = ext; engine = KNOWN_ENGINE[ext];
-      canTranslate = (engine === "doc" || engine === "voice" || engine === "rpycdec" || engine === "text");
+      canTranslate = (engine === "doc" || engine === "voice" || engine === "rpycdec" || engine === "text" || engine === "lyric" || engine === "mail");
     }
     else if (TEXT_EXTS.has(ext)) { id = "text"; engine = "text"; canTranslate = true; }
     else { id = "generic"; engine = "none"; canTranslate = false; }

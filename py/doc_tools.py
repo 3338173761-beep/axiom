@@ -254,6 +254,186 @@ def extract_ole(data):
     return "\n".join(kept[:500]) if kept else "OLE 文档中未提取到文本（可能是加密或图片型文档）"
 
 
+def _score_summary(xml, label):
+    """MuseScore/MusicXML 乐谱摘要（标题/作曲/拍号/小节/音符）"""
+    lines = [label]
+    for key, tag in (("标题", "workTitle"), ("标题", "title"), ("作曲", "composer"), ("作曲", "creator")):
+        if len(lines) > 3:
+            break
+        m = re.search(r"<metaTag name=\"%s\">(.*?)</metaTag>" % tag, xml)
+        if m and m.group(1).strip():
+            lines.append("%s: %s" % (key, m.group(1).strip()))
+            break
+    if len(lines) < 3:
+        m = re.search(r"<title>(.*?)</title>", xml)
+        if m and m.group(1).strip():
+            lines.append("标题: " + m.group(1).strip())
+    m = re.search(r"<sig>\s*<nom>(\d+)</nom>\s*<den>(\d+)</den>", xml)
+    if m:
+        lines.append("拍号: %s/%s" % (m.group(1), m.group(2)))
+    notes = len(re.findall(r"<Note>", xml))
+    measures = len(re.findall(r"<Measure>", xml))
+    lines.append("小节: %d · 音符: %d" % (measures, notes))
+    return "\n".join(lines)
+
+
+def extract_xml_score(data):
+    """直接 XML 乐谱（mscx/musicxml）"""
+    try:
+        xml = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    if "<score-partwise" in xml or "<ScorePartwise" in xml:
+        return _score_summary(xml, "MusicXML 乐谱")
+    if "<museScore" in xml or "<musescore" in xml:
+        return _score_summary(xml, "MuseScore 乐谱（XML）")
+    return None
+
+
+def extract_mscz(data):
+    """MuseScore/Finale 乐谱包：zip 内含 .mscx/.mscz/.musicxml XML"""
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except Exception:
+        zf = None
+    if zf is None:
+        return extract_xml_score(data)
+    names = zf.namelist()
+    for nm in names:
+        if nm.lower().endswith((".mscx", ".mscx.orig", ".xml", ".musicxml")):
+            try:
+                xml = zf.read(nm).decode("utf-8", "replace")
+            except Exception:
+                continue
+            r = _score_summary(xml, "MuseScore 乐谱（压缩包）" if nm.endswith((".mscx", ".mscx.orig")) else "MusicXML 乐谱（压缩包）")
+            if r:
+                return r
+    return "MuseScore/Finale 乐谱包：内部 XML 未找到（%d 个部件）" % len(names)
+
+
+def extract_xps(data):
+    """XPS/OpenXPS：zip + .fpage XML 文本"""
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except Exception:
+        return None
+    parts = zf.namelist()
+    out = ["XPS 文档（XML Paper Specification）", "包内 %d 个部件" % len(parts)]
+    texts = []
+    for nm in parts:
+        if nm.lower().endswith((".fpage", ".fdoc")):
+            try:
+                x = zf.read(nm).decode("utf-8", "replace")
+                texts.extend(t for t in re.findall(r'<Glyphs[^>]*UnicodeString="([^"]*)"', x) if t.strip())
+            except Exception:
+                pass
+    if texts:
+        out.append("提取文本: " + " ".join(texts[:80])[:600])
+    return "\n".join(out)
+
+
+def extract_json5(data):
+    """JSON5：去注释/尾逗号后解析（零依赖子集）"""
+    try:
+        text = data.decode("utf-8", "replace")
+    except Exception:
+        return None
+    # JSON5 允许前置注释/空白（BOM/注释/换行），先去注释再判断是否对象/数组
+    def strip_js_comments(s):
+        out = []
+        i = 0
+        n = len(s)
+        in_str = False
+        q = ""
+        while i < n:
+            c = s[i]
+            if in_str:
+                out.append(c)
+                if c == "\\" and i + 1 < n:
+                    out.append(s[i + 1])
+                    i += 2
+                    continue
+                if c == q:
+                    in_str = False
+                i += 1
+                continue
+            if c in "\"'":
+                in_str = True
+                q = c
+                out.append(c)
+                i += 1
+                continue
+            if c == "/" and i + 1 < n and s[i + 1] == "/":
+                while i < n and s[i] != "\n":
+                    i += 1
+                continue
+            if c == "/" and i + 1 < n and s[i + 1] == "*":
+                i += 2
+                while i + 1 < n and not (s[i] == "*" and s[i + 1] == "/"):
+                    i += 1
+                i += 2
+                continue
+            out.append(c)
+            i += 1
+        return "".join(out)
+
+    clean = strip_js_comments(text)
+    if not clean.lstrip().startswith(("{", "[")):
+        return None
+    clean = re.sub(r",\s*([}\]])", r"\1", clean)
+    # JSON5 单引号字符串 → 双引号（处理 \' 与 \" 转义）
+    def quotes_to_double(s):
+        out = []
+        i = 0
+        n = len(s)
+        q = None
+        while i < n:
+            c = s[i]
+            if q:
+                if c == "\\" and i + 1 < n:
+                    nxt = s[i + 1]
+                    if q == "'" and nxt == "'":
+                        out.append("'")       # \' → '（双引号串内合法）
+                    else:
+                        out.extend((c, nxt))
+                    i += 2
+                    continue
+                if c == q:
+                    q = None
+                    out.append('"')
+                else:
+                    out.append(c)
+            else:
+                if c == "'":
+                    q = "'"
+                    out.append('"')
+                else:
+                    out.append(c)
+            i += 1
+        return "".join(out)
+
+    clean = quotes_to_double(clean)
+    # JSON5 未加引号键 → 加双引号（仅匹配键后跟冒号：字面量字母/下划线/$ 开头）
+    clean = re.sub(r"([{,]\s*)([A-Za-z_$][\w$]*)(\s*:)", r'\1"\2"\3', clean)
+    try:
+        import json
+        obj = json.loads(clean)
+    except Exception:
+        return "JSON5：解析失败（该文件可能含更复杂 JSON5 特性，浏览器内为 JSON5 子集）"
+
+    def brief(o, depth=0):
+        if isinstance(o, dict):
+            items = list(o.items())[:12]
+            return "{%s}" % ", ".join("%s: %s" % (k, brief(v, depth + 1)) for k, v in items)
+        if isinstance(o, list):
+            return "[%s]" % ", ".join(brief(v, depth + 1) for v in o[:12])
+        if isinstance(o, str):
+            return repr(o)[:40]
+        return repr(o)[:40]
+
+    return "\n".join(["JSON5 数据", "根对象: " + brief(obj)[:800]])
+
+
 def extract_document(data, name):
     lower = name.lower()
     if lower.endswith((".docx", ".docm", ".dotx", ".dotm")):
@@ -271,6 +451,12 @@ def extract_document(data, name):
         return extract_epub(data)
     if lower.endswith(".rtf"):
         return extract_rtf(data)
+    if lower.endswith((".mscz", ".mscx", ".musx", ".musicxml")):
+        return extract_mscz(data)
+    if lower.endswith((".xps", ".oxps")):
+        return extract_xps(data)
+    if lower.endswith(".json5"):
+        return extract_json5(data)
     return "暂不支持该文档格式（%s）" % lower
 
 

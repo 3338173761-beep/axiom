@@ -231,6 +231,7 @@ def parse_ole(data):
     out.append("扇区大小: %d  总扇区: %d  目录扇区: %d" % (sector_sz, sec_cnt, dir_sid))
     # 简易：按目录扇区链解析 128 字节目录条目（name 64 + 其余）
     # 目录扇区链（sect 表）简化读取：从 header 72 起 109 个 uint32，等于扇区数则扇区链在头；否则用 FAT
+    # 目录扇区链（sect 表）简化读取：从 header 72 起 109 个 uint32，等于扇区数则扇区链在头；否则用 FAT
     try:
         names = []
         visited = set()
@@ -270,17 +271,260 @@ def parse_ole(data):
     return out
 
 
+# ---------- 容器/音频/视频头解析（SF2/DLS/FXB/FXP/VOC/AU/W64/MKV/FLV/SWF） ----------
+
+def parse_riff(data):
+    """RIFF 家族：WAV/SF2/DLS/FXB/FXP 块列表"""
+    if data[:4] not in (b"RIFF", b"RF64"):
+        return None
+    size = struct.unpack("<I", data[4:8])[0]
+    typ = data[8:12].decode("latin1", "replace")
+    names = {"WAVE": "Wave 音频", "sfbk": "SoundFont 2 音色库", "DLS ": "DLS 可下载音色",
+             "FXP ": "VST 预置", "FXB ": "VST 音色库", "RMID": "RIFF MIDI"}
+    out = ["RIFF %s（%s, %d bytes）" % (typ, names.get(typ, "?"), size)]
+    pos = 12
+    n = 0
+    while pos + 8 <= len(data) and pos < 12 + size:
+        cid = data[pos:pos + 4].decode("latin1", "replace")
+        csize = struct.unpack("<I", data[pos + 4:pos + 8])[0]
+        out.append("- %-4s %d bytes" % (cid, csize))
+        pos += 8 + csize + (csize & 1)
+        n += 1
+        if n >= 40:
+            out.append("… 更多块省略")
+            break
+    return "\n".join(out)
+
+
+def parse_voc(data):
+    """Creative Voice：VOC 块头"""
+    if not data.startswith(b"Creative Voice File"):
+        return None
+    if len(data) < 26:
+        return None
+    ver = struct.unpack("<H", data[20:22])[0]
+    sig = struct.unpack("<H", data[22:24])[0]
+    out = ["Creative Voice 音频 (VOC v%d.%d)" % (ver >> 8, ver & 0xFF), "签名: 0x%04X" % sig]
+    names = {1: "语音", 2: "续接", 3: "静音", 4: "标记", 5: "文本", 6: "重复", 7: "重复结束", 8: "扩展", 9: "结束"}
+    pos = 26
+    n = 0
+    while pos + 1 < len(data):
+        bt = data[pos]
+        if bt == 0:
+            out.append("- 结束块")
+            break
+        if bt == 9:
+            pos += 4
+            continue
+        if 1 <= bt <= 8:
+            if pos + 4 > len(data):
+                break
+            size = data[pos + 1] | (data[pos + 2] << 8) | (data[pos + 3] << 16)
+            pos += 4
+        else:
+            pos += 1
+            continue
+        out.append("- 块%d %s %d bytes" % (bt, names.get(bt, "?"), size))
+        pos += size + (size & 1)
+        n += 1
+        if n >= 24:
+            out.append("… 更多块省略")
+            break
+    return "\n".join(out)
+
+
+def parse_au(data):
+    """Sun/NeXT .au：.snd 头"""
+    if data[:4] != b".snd":
+        return None
+    if len(data) < 24:
+        return None
+    rate, off, length, enc = struct.unpack(">IIII", data[4:20])
+    encs = {1: "8bit μ-law", 2: "8bit linear", 3: "16bit linear", 4: "24bit", 5: "32bit", 7: "float", 27: "A-law"}
+    return "\n".join([
+        "Sun/NeXT 音频 (.au)",
+        "采样率: %d Hz · 数据偏移: %d · 长度: %d bytes" % (rate, off, length),
+        "编码: %s" % encs.get(enc, "0x%X" % enc),
+    ])
+
+
+def parse_w64(data):
+    """Sony Wave64：riff 64 位块"""
+    if data[:4] != b"riff":
+        return None
+    if len(data) < 64 or data[8:16] != b"WAVEfmt ":
+        return "Sony Wave64 音频"
+    fmt_size = struct.unpack("<I", data[16:20])[0]
+    if 24 + fmt_size > len(data) or fmt_size < 16:
+        return "Sony Wave64 音频"
+    ch = struct.unpack("<H", data[24:26])[0]
+    rate = struct.unpack("<I", data[28:32])[0]
+    return "\n".join([
+        "Sony Wave64 音频",
+        "采样率: %d Hz · 通道: %d" % (rate, ch),
+    ])
+
+
+def _ebml_vint(b, pos):
+    first = b[pos]
+    m = 0x80
+    width = 1
+    while not (first & m) and width < 8:
+        m >>= 1
+        width += 1
+    v = first & (m - 1)
+    for i in range(1, width):
+        if pos + i >= len(b):
+            break
+        v = (v << 8) | b[pos + i]
+    return v, width
+
+
+def parse_mkv(data):
+    """Matroska/WebM：EBML 头 + DocType + 时长"""
+    if data[:4] != b"\x1a\x45\xdf\xa3":
+        return None
+    pos = 4
+    _, w = _ebml_vint(data, pos)
+    pos += w
+    out = ["Matroska 容器 (EBML)"]
+    doc_type = None
+    duration = None
+    seg_size = None
+    p = pos
+    limit = min(len(data), 262144)
+    while p + 2 < limit:
+        try:
+            eid, w1 = _ebml_vint(data, p)
+            esize, w2 = _ebml_vint(data, p + w1)
+        except Exception:
+            break
+        p += w1 + w2
+        if p + esize > limit:
+            break
+        if eid == 0x4282:  # DocType
+            doc_type = data[p:p + esize].decode("utf-8", "replace")
+        elif eid == 0x4489 and esize in (4, 8):  # Duration
+            if esize == 8:
+                duration = struct.unpack(">d", data[p:p + 8])[0]
+            else:
+                duration = struct.unpack(">f", data[p:p + 4])[0]
+        elif eid == 0x18538067 and esize <= 8:  # Segment 大小
+            seg_size = esize
+        p += esize
+        if doc_type and duration is not None and seg_size is not None:
+            break
+    out.append("类型: %s" % (doc_type or "?"))
+    out.append("时长: %.2f 秒" % duration if duration else "时长: (未知)")
+    out.append("总大小: %d bytes" % len(data))
+    return "\n".join(out)
+
+
+def parse_flv(data):
+    """FLV：头 + tag 计数"""
+    if data[:3] != b"FLV":
+        return None
+    if len(data) < 9:
+        return None
+    ver = data[3]
+    flags = data[4]
+    hlen = struct.unpack(">I", data[5:9])[0]
+    tags = {0x08: "音频", 0x09: "视频", 0x12: "脚本元数据"}
+    counts = {}
+    pos = hlen
+    n = 0
+    while pos + 15 <= len(data):
+        if data[pos + 4] != 0:
+            break
+        ttype = data[pos + 4]
+        tsize = struct.unpack(">I", b"\x00" + data[pos + 5:pos + 8])[0]
+        counts[ttype] = counts.get(ttype, 0) + 1
+        pos += 11 + tsize + 4
+        n += 1
+        if n > 5000:
+            break
+    out = ["FLV 视频 · 版本 %d%s%s" % (
+        ver,
+        " · 视频流" if flags & 1 else "",
+        " · 音频流" if flags & 4 else "")]
+    out.append("标签: %s" % " / ".join("%s×%d" % (tags.get(k, "0x%X" % k), v) for k, v in sorted(counts.items())))
+    return "\n".join(out)
+
+
+def parse_swf(data):
+    """SWF：FWS/CWS/ZWS 头 + 版本 + 舞台尺寸（RECT）"""
+    if data[:3] not in (b"FWS", b"CWS", b"ZWS"):
+        return None
+    if len(data) < 8:
+        return None
+    ver = data[3]
+    size = struct.unpack("<I", data[4:8])[0]
+    comp = {b"FWS": "未压缩", b"CWS": "zlib 压缩", b"ZWS": "LZMA 压缩"}[data[:3]]
+    out = ["Shockwave Flash (SWF) · 版本 %d · %s · %d bytes" % (ver, comp, size)]
+    # RECT：第 8 字节起，前 5 位 = nbits，随后 4×nbits 位 = Xmin Xmax Ymin Ymax
+    if len(data) >= 9:
+        nbits = (data[8] >> 3) & 0x1F
+        if 0 < nbits <= 31:
+            total = (5 + 4 * nbits + 7) // 8
+            if 8 + total <= len(data):
+                bits = "".join(format(data[8 + i], "08b") for i in range(total))
+                p = 5
+                vals = []
+                ok = True
+                for _ in range(4):
+                    if p + nbits > len(bits):
+                        ok = False
+                        break
+                    vals.append(int(bits[p:p + nbits], 2))
+                    p += nbits
+                if ok:
+                    xmin, xmax, ymin, ymax = vals
+                    out.append("舞台尺寸: %d×%d（坐标 %d,%d ~ %d,%d）" % (xmax - xmin, ymax - ymin, xmin, ymin, xmax, ymax))
+    return "\n".join(out)
+
+
 def parse_media(data, filename):
     fn = (filename or "").lower()
-    for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font, parse_mobi, parse_ole):
+    ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
+    # 扩展名优先分派（同魔数多格式场景）
+    if ext == "sf2":
+        r = parse_riff(data)
+        if r:
+            return r
+    if ext in ("voc",):
+        r = parse_voc(data)
+        if r:
+            return r
+    if ext == "au":
+        r = parse_au(data)
+        if r:
+            return r
+    if ext == "w64":
+        r = parse_w64(data)
+        if r:
+            return r
+    if ext == "mkv":
+        r = parse_mkv(data)
+        if r:
+            return r
+    if ext == "flv":
+        r = parse_flv(data)
+        if r:
+            return r
+    if ext == "swf":
+        r = parse_swf(data)
+        if r:
+            return r
+    for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font,
+                   parse_mobi, parse_ole, parse_riff, parse_voc, parse_au, parse_w64,
+                   parse_mkv, parse_flv, parse_swf):
         try:
             r = parser(data)
         except Exception:
             continue
         if r is not None:
-            return "\n".join(r)
+            return "\n".join(r) if isinstance(r, list) else r
     # 兜底：按扩展名给提示
-    ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
     if ext:
         return "该类型（.%s）暂无结构化解析器；已识别为二进制文件，大小 %d 字节。" % (ext, len(data))
     return "未知二进制：大小 %d 字节，文件头 %s" % (len(data), " ".join("%02X" % b for b in data[:16]))

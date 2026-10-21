@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=7`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=8`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -571,6 +571,118 @@ voice_tools.extract_voice(data, ${JSON.stringify(file.name)})
   }
 
   // =========================================================
+  // 加密歌词引擎：krc/qrc/yrc/trc → 时间轴还原 → 可翻译
+  // =========================================================
+  async function lyricDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载歌词引擎…");
+    await loadEngineScripts(p, ["lyric_tools"]);
+    const n = await writeInput(p, "/axiom/input.lyric", file);
+    onLog && onLog("已写入歌词文件（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("解密并还原时间轴…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import lyric_tools
+with open("/axiom/input.lyric", "rb") as f:
+    data = f.read()
+lyric_tools.parse_lyric(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("歌词解析完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解析失败：" + e.message);
+      throw new Error("歌词解析失败：" + e.message);
+    }
+  }
+
+  // =========================================================
+  // 邮件/日历/通讯录引擎：eml/mbox/emlx/ics/vcf
+  // =========================================================
+  async function mailDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载邮件引擎…");
+    await loadEngineScripts(p, ["mail_tools"]);
+    const n = await writeInput(p, "/axiom/input.mail", file);
+    onLog && onLog("已写入文件（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("解析邮件/日历/通讯录…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import mail_tools
+with open("/axiom/input.mail", "rb") as f:
+    data = f.read()
+mail_tools.parse_mail(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("解析完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解析失败：" + e.message);
+      throw new Error("邮件解析失败：" + e.message);
+    }
+  }
+
+  // =========================================================
+  // 游戏资源包引擎：vpk/wad/ktx/sketch/kra
+  // =========================================================
+  async function gameDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载游戏资源包引擎…");
+    await loadEngineScripts(p, ["game_tools"]);
+    const n = await writeInput(p, "/axiom/input.game", file);
+    onLog && onLog("已写入文件（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("解析资源包…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import game_tools
+with open("/axiom/input.game", "rb") as f:
+    data = f.read()
+game_tools.parse_game(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("解析完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解析失败：" + e.message);
+      throw new Error("游戏资源包解析失败：" + e.message);
+    }
+  }
+
+  // =========================================================
+  // 3D 模型引擎：obj/stl/ply/gltf/glb/dae/off
+  // =========================================================
+  async function modelDecode(file, onLog) {
+    const p = await loadPyodideRuntime();
+    setStatus("busy", "正在加载 3D 模型引擎…");
+    await loadEngineScripts(p, ["model_tools"]);
+    const n = await writeInput(p, "/axiom/input.model", file);
+    onLog && onLog("已写入模型文件（" + (n / 1024).toFixed(1) + " KB）");
+    onLog && onLog("解析模型结构…");
+    const py = `
+import sys
+sys.path.insert(0, "/axiom/py")
+import model_tools
+with open("/axiom/input.model", "rb") as f:
+    data = f.read()
+model_tools.parse_model(data, ${JSON.stringify(file.name)})
+`;
+    try {
+      const result = await p.runPythonAsync(py);
+      onLog && onLog("解析完成");
+      return String(result);
+    } catch (e) {
+      onLog && onLog("解析失败：" + e.message);
+      throw new Error("3D 模型解析失败：" + e.message);
+    }
+  }
+
+  // =========================================================
   // 文档引擎：docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本
   // =========================================================
   async function docDecode(file, onLog) {
@@ -713,13 +825,47 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     extractTextFromSource: extractTextSegments
   });
 
+  register("lyric", {
+    id: "lyric",
+    label: "加密歌词引擎（krc/qrc/yrc/trc → 时间轴还原 → 可翻译，浏览器内）",
+    canTranslate: true,
+    formats: ["krc", "qrc", "yrc", "trc"],
+    decompile: lyricDecode,
+    extractTextFromSource: extractTextSegments
+  });
+
+  register("mail", {
+    id: "mail",
+    label: "邮件/日历/通讯录引擎（eml/mbox/emlx/ics/vcf → 可翻译，浏览器内）",
+    canTranslate: true,
+    formats: ["eml", "mbox", "emlx", "ics", "vcf"],
+    decompile: mailDecode,
+    extractTextFromSource: extractTextSegments
+  });
+
+  register("game", {
+    id: "game",
+    label: "游戏资源包/设计源引擎（vpk/wad/ktx/sketch/kra，浏览器内）",
+    canTranslate: false,
+    formats: ["vpk", "wad", "ktx", "sketch", "kra"],
+    decompile: gameDecode
+  });
+
+  register("model", {
+    id: "model",
+    label: "3D 模型引擎（obj/stl/ply/gltf/glb/dae/off，浏览器内）",
+    canTranslate: false,
+    formats: ["obj", "stl", "ply", "gltf", "glb", "dae", "off"],
+    decompile: modelDecode
+  });
+
   register("doc", {
     id: "doc",
-    label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf → 可翻译文本，浏览器内）",
+    label: "文档引擎（docx/xlsx/pptx/odt/ods/odp/epub/rtf/乐谱/版式 → 可翻译文本，浏览器内）",
     canTranslate: true,
     formats: ["doc", "dot", "docx", "docm", "dotx", "dotm", "xlsx", "xlsm", "xltx", "xltm",
       "pptx", "pptm", "potx", "odt", "ott", "odm", "ods", "ots", "odp", "otp",
-      "epub", "rtf"],
+      "epub", "rtf", "mscz", "mscx", "musx", "xps", "oxps", "json5"],
     decompile: docDecode,
     extractTextFromSource: extractTextSegments
   });
@@ -786,7 +932,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     onLog && onLog("sqlite: 内置 sqlite3 → 表结构/行数/数据 dump");
     const r = await p.runPythonAsync("import sqlite_dump\n"
       + "data = open('/axiom/input.db','rb').read()\n"
-      + "out = sqlite_dump.dump_sqlite(data)\n"
+      + "out = sqlite_dump.dump_db(data, '/axiom/input.db')\n"
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
@@ -802,9 +948,10 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   };
 
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
-  register("sqlite", { id: "sqlite", label: "SQLite 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db"], decompile: sqliteDecode });
+  register("sqlite", { id: "sqlite", label: "SQLite/dBase 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db", "dbf", "sqlite3", "sqlitedb"], decompile: sqliteDecode });
   register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
-  register("media", { id: "media", label: "媒体/字体/容器元数据解析器（WAV/PNG/JPG/GIF/PSD/TTF/OTF/MOBI/MSI）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi"], decompile: metaDecode });
+  register("media", { id: "media", label: "媒体/字体/容器元数据解析器（WAV/PNG/JPG/GIF/PSD/TTF/OTF/MOBI/MSI/SF2/MKV/FLV/SWF/VOC/AU/W64）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
+    "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf"], decompile: metaDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();
