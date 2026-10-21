@@ -484,6 +484,99 @@ def parse_swf(data):
     return "\n".join(out)
 
 
+def parse_bmp(data):
+    if data[:2] != b"BM" or len(data) < 26:
+        return None
+    w, h = struct.unpack_from("<ii", data, 18)
+    bpp = struct.unpack_from("<H", data, 28)[0] if len(data) >= 30 else 0
+    out = ["Bitmap（BMP）"]
+    out.append("尺寸: %d × %d" % (w, h))
+    out.append("色深: %d bpp" % bpp)
+    return "\n".join(out)
+
+
+def parse_ico(data):
+    if len(data) < 6 or data[0:2] not in (b"\x00\x00",):
+        return None
+    ico_type = struct.unpack_from("<H", data, 2)[0]
+    if ico_type not in (1, 2):
+        return None
+    count = struct.unpack_from("<H", data, 4)[0]
+    if count == 0 or count > 100:
+        return None
+    out = ["Windows %s" % ("图标（ico）" if ico_type == 1 else "光标（cur）")]
+    out.append("图像数: %d" % count)
+    for i in range(min(count, 8)):
+        off = 6 + i * 16
+        w = data[off]
+        h = data[off + 1]
+        if w == 0:
+            w = 256
+        if h == 0:
+            h = 256
+        bpp = struct.unpack_from("<H", data, off + 10)[0]
+        if ico_type == 1:
+            out.append("  %d×%d  %d bpp" % (w, h, bpp))
+        else:
+            hx, hy = struct.unpack_from("<hh", data, off + 10)
+            out.append("  %d×%d  热点(%d,%d)" % (w, h, hx, hy))
+    return "\n".join(out)
+
+
+def parse_dds(data):
+    if data[:4] != b"DDS " or len(data) < 128:
+        return None
+    h, w = struct.unpack_from("<II", data, 12)
+    fourcc = _dec(data[84:88])
+    out = ["DirectDraw Surface（DDS）"]
+    out.append("尺寸: %d × %d" % (w, h))
+    out.append("压缩: " + (fourcc if fourcc else "未压缩 RGB"))
+    return "\n".join(out)
+
+
+def parse_tga(data):
+    if len(data) < 18:
+        return None
+    img_type = data[2]
+    if img_type not in (0, 1, 2, 3, 9, 10, 11):
+        return None
+    w, h = struct.unpack_from("<HH", data, 12)
+    bpp = data[16]
+    types = {0: "无图像", 1: "索引调色板", 2: "真彩未压缩",
+             3: "灰度未压缩", 9: "索引 RLE", 10: "真彩 RLE", 11: "灰度 RLE"}
+    out = ["Targa（TGA）"]
+    out.append("尺寸: %d × %d" % (w, h))
+    out.append("类型: %s" % types.get(img_type, "0x%02X" % img_type))
+    out.append("色深: %d bpp" % bpp)
+    return "\n".join(out)
+
+
+def parse_pcx(data):
+    if len(data) < 128 or data[0] != 10:
+        return None
+    xmin, ymin, xmax, ymax = struct.unpack_from("<HHHH", data, 4)
+    planes = data[65]
+    bpp = data[3]
+    out = ["Paintbrush（PCX）"]
+    out.append("尺寸: %d × %d" % (xmax - xmin + 1, ymax - ymin + 1))
+    out.append("色深: %d bpp × %d 平面" % (bpp, planes))
+    return "\n".join(out)
+
+
+def parse_hdr(data):
+    if data[:10] != b"#?RADIANCE":
+        return None
+    text = data[:200].decode("latin1", "replace")
+    import re as _re
+    m = _re.search(r"-Y\s+(\d+)\s+\+X\s+(\d+)", text)
+    out = ["Radiance HDR"]
+    if m:
+        out.append("尺寸: %s × %s" % (m.group(2), m.group(1)))
+    if "FORMAT=32-bit_rle_rgbe" in text:
+        out.append("格式: 32-bit RLE RGBE")
+    return "\n".join(out)
+
+
 def parse_ppm(data):
     """PPM/PGM/PBM：ASCII/二进制图像头"""
     if not data[:2] in (b"P1", b"P2", b"P3", b"P4", b"P5", b"P6"):
@@ -537,9 +630,34 @@ def parse_media(data, filename):
         r = parse_ppm(data)
         if r:
             return r
+    if ext == "bmp":
+        r = parse_bmp(data)
+        if r:
+            return r
+    if ext in ("ico", "cur"):
+        r = parse_ico(data)
+        if r:
+            return r
+    if ext == "dds":
+        r = parse_dds(data)
+        if r:
+            return r
+    if ext == "tga":
+        r = parse_tga(data)
+        if r:
+            return r
+    if ext == "pcx":
+        r = parse_pcx(data)
+        if r:
+            return r
+    if ext == "hdr":
+        r = parse_hdr(data)
+        if r:
+            return r
     for parser in (parse_wav, parse_png, parse_jpg, parse_gif, parse_psd, parse_font,
                    parse_mobi, parse_ole, parse_riff, parse_voc, parse_au, parse_w64,
-                   parse_mkv, parse_flv, parse_swf, parse_ppm):
+                   parse_mkv, parse_flv, parse_swf, parse_ppm, parse_bmp, parse_ico,
+                   parse_dds, parse_tga, parse_pcx, parse_hdr):
         try:
             r = parser(data)
         except Exception:

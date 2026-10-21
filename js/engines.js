@@ -102,7 +102,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=11`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=12`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1027,8 +1027,8 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
   register("sqlite", { id: "sqlite", label: "SQLite/dBase 解析器（表结构 + 数据 dump）", canTranslate: false, formats: ["sqlite", "db", "dbf", "sqlite3", "sqlitedb"], decompile: sqliteDecode });
   register("iso", { id: "iso", label: "自研 ISO9660 镜像解析器（卷信息 + 目录树）", canTranslate: false, formats: ["iso"], decompile: isoDecode });
-  register("media", { id: "media", label: "媒体/字体/容器元数据解析器（WAV/PNG/JPG/GIF/PSD/TTF/OTF/MOBI/MSI/SF2/MKV/FLV/SWF/VOC/AU/W64/PPM）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
-    "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf", "ppm", "pgm", "pbm", "pnm"], decompile: metaDecode });
+  register("media", { id: "media", label: "媒体/图像/字体元数据解析器（WAV/PNG/JPG/BMP/ICO/DDS/TGA/PCX/HDR/PPM/PSD/TTF/MKV/FLV/SWF…）", canTranslate: false, formats: ["wav", "png", "jpg", "jpeg", "gif", "psd", "ttf", "otf", "mobi", "msi", "jfif", "wave",
+    "sf2", "dls", "fxb", "fxp", "voc", "w64", "au", "mkv", "flv", "swf", "ppm", "pgm", "pbm", "pnm", "bmp", "ico", "cur", "dds", "tga", "pcx", "hdr"], decompile: metaDecode });
   register("audio", { id: "audio", label: "音乐元数据引擎（追踪器 IT/MOD/S3M/XM、芯片音乐 VGM/VGZ/PSF、MIDI KAR/RMI/XMI，浏览器内）", canTranslate: false,
     formats: ["it", "mod", "s3m", "xm", "vgm", "vgz", "psf", "kar", "rmi", "xmi"], decompile: audioDecode });
   register("cad", { id: "cad", label: "CAD 文本实体引擎（DXF/IGES/SAT/STEP，浏览器内）", canTranslate: false,
@@ -1043,6 +1043,19 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     formats: ["lnk", "torrent", "cue", "wotreplay", "cdg", "eps", "plist", "idx"], decompile: miscDecode });
   register("vocal", { id: "vocal", label: "歌声合成工程引擎（vspx/xvsq/nep/vfp/vog/kfn，浏览器内）", canTranslate: false,
     formats: ["vspx", "xvsq", "nep", "vfp", "vog", "kfn"], decompile: vocalDecode });
+  // ---- v2.8.6 新引擎：rom（游戏主机 ROM 头解析）----
+  const romDecode = async (file, onLog) => {
+    const p = await loadEngineScripts(await loadPyodideRuntime(), ["rom_tools"]);
+    const n = await writeInput(p, "/axiom/input.rom", file);
+    onLog && onLog("rom: 游戏主机 ROM 头解析（nes/gb/gba/nds/n64/sfc/smc/fds/cia）→ rom_tools.py");
+    const r = await p.runPythonAsync("import rom_tools\n"
+      + "data = open('/axiom/input.rom','rb').read()\n"
+      + "out = rom_tools.parse_rom(data, '/axiom/input.rom')\n"
+      + "out if out is not None else 'NO_PARSE'");
+    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+  };
+  register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（nes/gb/gba/nds/n64/sfc/smc/fds/cia，浏览器内）", canTranslate: false,
+    formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia"], decompile: romDecode });
 
   return { loadPyodideRuntime, ensurePackage, register, get, ids: () => Object.keys(registry), onStatus };
 })();

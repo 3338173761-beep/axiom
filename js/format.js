@@ -62,6 +62,11 @@ const AxiomFormats = (function () {
     vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
     // 归档补充（zip/tar 容器）
     ipa: "archive", ustar: "archive",
+    // 图像头（bmp/ico/cur/dds/tga/pcx/hdr 走 media）
+    bmp: "media", ico: "media", cur: "media", dds: "media", tga: "media", pcx: "media", hdr: "media",
+    // 游戏主机 ROM
+    nes: "rom", gb: "rom", gbc: "rom", gba: "rom", nds: "rom", n64: "rom", z64: "rom", v64: "rom",
+    sfc: "rom", smc: "rom", fds: "rom", cia: "rom",
     "7z": "sevenz", rar: "rar",
     // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
     tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
