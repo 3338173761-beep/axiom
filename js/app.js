@@ -380,6 +380,7 @@
       }
     } catch (e) {
       pendingTranslate = false;
+      try { window.__axiomSfx && window.__axiomSfx.error && window.__axiomSfx.error(); } catch (_) {}
       Term.line("> FATAL[" + (engine && engine.id ? engine.id : "?") + "]: " + e.message, "t-err");
       log("✗ 错误：" + e.message);
       els.runtimeDot.className = "dot error";

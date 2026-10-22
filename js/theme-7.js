@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.37',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.38',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -494,7 +494,13 @@
       // 每行打完给一声轻 tick（正常命令行音效感）
       CMD_SCRIPT.forEach(function (line) {
         chain = chain.then(function () {
-          try { var s = window.__axiomSfx; if (s && s.tick) s.tick(); } catch (e) {}
+          // [ERR] lines must not share the ordinary typing tick -- that is why
+          // failures used to "not sound like errors". try/catch is kept so a
+          // missing AudioContext can never break the CMD chain again.
+          try {
+            var s = window.__axiomSfx;
+            if (s) { if (line.t === 'err' && s.error) s.error(); else if (s.tick) s.tick(); }
+          } catch (e) {}
           return self.addLine(line, line.ms);
         });
         if (line.t === 'cmd' || line.t === 'err') chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 60); }); });
