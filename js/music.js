@@ -337,7 +337,10 @@
       case 'boom1': impact(now, true); riserStart(now, 1.2); duckSfx(now, 0.3, 0.001, 0.1); break;
       case 'boom2': impact(now, true); subDrop(now, 0.4); duckSfx(now, 0.35, 0.001, 0.1); break;
       case 'hit3': impact(now, true); subDrop(now, 0.35); duckSfx(now, 0.3, 0.001, 0.1); break;
-      case 'flash': noiseTick(now, 3200, 6, 0.07, 0.012); break;
+      /* flash 是风暴里出现次数最多的命中（每个闪屏一声）。旧值 Q=6 / 0.07：
+       * 谐振出界且太轻，即使卡在拍上也听不见，等于白做对齐。
+       * 现按 3-6kHz 清脆区、Q=3（2-5 区间内）、峰值 0.17 重做。 */
+      case 'flash': noiseTick(now, 3400, 3, 0.17, 0.012); break;
       case 'snow': impact(now, true); subDrop(now, 0.4); noiseWallStart(now); siren(now, 1.2, true); break;
       case 'err': subDrop(now, 0.45); siren(now, 2.5, true); break;
       case 'drop': impact(now, true); subDrop(now, 0.5); noiseBurst(now, 0.3); duckSfx(now, 0.4, 0.001, 0.1); break;

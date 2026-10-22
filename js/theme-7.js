@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.39',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.40',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -35,6 +35,78 @@
     { t: 'err',   text: '[ ERR ] core temp critical — overclock fail', ms: 40 },
     { t: 'sys',   text: '[ SYS ] degraded mode · UI 82% · 6.1GB',      ms: 38 }
   ];
+
+  /* ---------- 风暴拍点表（唯一可调处）----------
+   * 每个条目 = 一拍上发生的事：闪屏 flash、风暴段 storm、打击音 hit，
+   * 或快速连闪 burst（burst 内每一闪各自一声，音频按绝对时间预约，
+   * 所以三闪就是三声，不会再出现"一串闪屏共用一声"）。
+   * beat 是 tempo map 上的拍号（此区段约 1 拍 = 0.5s）；生成器会强制
+   * 拍号严格递增，写重了也不会塌成同一瞬间。
+   * 想加长风暴：把后面的 beat 整体推大、或往表里加行即可。 */
+  var STORM_SEQ = [
+    { beat: 4,  hit: 'flash', flash: [80, null] },
+    { beat: 6,  hit: 'boom1', storm: [900, 'red'] },
+    { beat: 7,  hit: 'flash', flash: [120, 'rgba(255,77,94,0.45)'] },
+    { beat: 8,  hit: 'flash', flash: [90,  'rgba(209,247,255,0.40)'] },
+    { beat: 9,  hit: 'flash', flash: [80,  'rgba(0,255,136,0.35)'] },
+    { beat: 11, hit: 'boom2', storm: [860, 'green'] },
+    { beat: 12, hit: 'flash', flash: [100, 'rgba(209,247,255,0.50)'] },
+    { beat: 13, hit: 'flash', flash: [80,  'rgba(255,77,94,0.50)'] },
+    { beat: 15, hit: 'hit3',  storm: [760, 'red'] },
+    { beat: 16, burst: [
+      { off: 0,   ms: 150, c: 'rgba(255,255,255,0.95)', hit: 'flash' },
+      { off: 150, ms: 120, c: 'rgba(255,77,94,0.90)',   hit: 'flash' },
+      { off: 300, ms: 120, c: 'rgba(209,247,255,0.95)', hit: 'stab'  }
+    ] },
+    { beat: 18, hit: 'flash', flash: [110, 'rgba(255,255,255,0.85)'] },
+    { beat: 19, burst: [
+      { off: 0,   ms: 110, c: 'rgba(0,255,136,0.90)',   hit: 'flash' },
+      { off: 110, ms: 110, c: 'rgba(255,77,94,0.90)',   hit: 'flash' },
+      { off: 220, ms: 110, c: 'rgba(209,247,255,0.95)', hit: 'flash' },
+      { off: 330, ms: 130, c: 'rgba(255,255,255,0.95)', hit: 'stab'  }
+    ] },
+    { beat: 22, hit: 'snow',  storm: [900, 'snow'] },
+    { beat: 24, hit: 'flash', flash: [140, 'rgba(255,77,94,0.80)'] },
+    { beat: 25, hit: 'err' }
+  ];
+  var STORM_ERR_BEAT = 27;   // 报错艺术字落点
+
+  function hitAt(kind, whenSec) {
+    try {
+      var m = window.__axiomMusic;
+      if (m && m.stormHit) m.stormHit(kind, whenSec);
+    } catch (e) {}
+  }
+  function fireStormStep(step) {
+    var anchor = null;
+    try {
+      var m = window.__axiomMusic;
+      if (m && typeof m.overclockSec === 'function') {
+        var a = m.overclockSec(step.beat);
+        if (typeof a === 'number' && isFinite(a)) anchor = a;
+      }
+    } catch (e) {}
+    if (step.hit && !step.flash && !step.storm) hitAt(step.hit, anchor);
+    if (step.flash) {
+      if (step.hit) hitAt(step.hit, anchor);
+      flash(step.flash[0], step.flash[1]);
+    }
+    if (step.storm) {
+      if (step.hit) hitAt(step.hit, anchor);
+      try { storm.start(step.storm[0], step.storm[1]); } catch (e) {}
+    }
+    if (step.burst) {
+      step.burst.forEach(function (b) {
+        // Audio is scheduled up-front on the sample-accurate clock so the fast
+        // repeats cannot drift; the visual side can only do its best with
+        // setTimeout, which is why the sound must not follow it.
+        hitAt(b.hit || 'flash', anchor != null ? anchor + b.off / 1000 : undefined);
+        if (b.off > 0) setTimeout(function () { flash(b.ms, b.c); }, b.off);
+        else flash(b.ms, b.c);
+      });
+    }
+  }
+  window.__axiomStormSeq = STORM_SEQ;
 
   /* ---------- 故障风暴：乱码雨 + 彩色 glitch 块 + 条带撕裂 + 噪点（错乱段主效果） ---------- */
   var storm = {
@@ -512,80 +584,30 @@
           return self.addLine(line, line.ms);
         });
         if (line.t === 'cmd' || line.t === 'err') chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 60); }); });
-        // 红色警示条闪出后 → 故障风暴：白屏乱闪 + 乱码雨 + 撕裂错位 + 红/绿 glitch（后半段错乱）
+        // 红色警示条闪出后 → 故障风暴。整段由 STORM_SEQ 这张拍点表驱动：
+        // 每个闪屏都自带一声打击（快速连闪用预约音频时间对齐），拍号由
+        // 生成器强制严格递增，杜绝旧代码里同一拍被重复等待导致的
+        // "三闪挤成一声 + 整拍被跳过"（听感糊、总时长凭空变短）。
         if (line.t === 'alert') {
-          // 音频：警示条 → 警报床起（长鸣贯穿整个错乱段，缓 fade），卡 bar0 beat1
+          // 警报床：长鸣贯穿整个错乱段，卡 bar0 beat1
           chain = chain.then(function () {
             try { var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart(); } catch (e) {}
             return waitBeat(1);
           });
-          // 第一波：白屏 + 红色风暴（boom1 @ bar1 beat0 = 2.31s，与音乐同拍）
-          chain = chain.then(function () { flash(80); return waitBeat(4); });
-          chain = chain.then(function () {
-            // 音频：SUB BOOM 与风暴同刻（密鼓音乐已移除，仅保留冲击音效）
-            try {
-              var m = window.__axiomMusic;
-              if (m && m.stormHit) m.stormHit('boom1');
-            } catch (e) {}
-            storm.start(720, 'red');
-            return waitBeat(6);
-          });
-          // 红闪 @ bar1 beat2（3.39s）+ 白闪 @ bar1 beat3（3.93s）
-          chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
-            flash(120, 'rgba(255,77,94,0.45)');
-            return waitBeat(6);
-          });
-          chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
-            flash(90, 'rgba(209,247,255,0.4)');
-            return waitBeat(8);
-          });
-          // 第二波：青色风暴 boom2 @ bar2 beat0（4.47s）
-          chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('boom2'); } catch (e) {}
-            storm.start(600, 'green');
-            return waitBeat(10);
-          });
-          chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
-            flash(100, 'rgba(209,247,255,0.5)');
-            return waitBeat(12);
-          });
-          // 第三波：红色收敛 hit3 @ bar3 beat0（6.49s）
-          chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('hit3'); } catch (e) {}
-            storm.start(420, 'red');
-            return waitBeat(14);
-          });
-          // 终焉序列：4 连疯狂闪白屏/彩屏（bar3 beat2..bar4 beat1）+ 雪花噪点墙
-          // 全部钉在 16 分音符格的拍点上（6.96/7.43/7.90/8.37/9.25s）
-          var finCols = [
-            ['rgba(255,255,255,0.95)', 150],
-            ['rgba(255,77,94,0.9)', 120],
-            ['rgba(209,247,255,0.95)', 150],
-            ['rgba(0,255,136,0.9)', 120]
-          ];
-          finCols.forEach(function (f, fi) {
+          var _prevBeat = -1;
+          STORM_SEQ.forEach(function (step) {
             chain = chain.then(function () {
-              try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
-              flash(f[1], f[0]);
-              return waitBeat(14 + fi);
+              // 表里若写重了（或被前面顺延），强制抬到上一拍 +1：
+              // 任何两步都不可能落在同一拍上，闪屏与鼓点因此始终 1:1。
+              if (!(step.beat > _prevBeat)) step.beat = _prevBeat + 1;
+              _prevBeat = step.beat;
+              fireStormStep(step);
+              return waitBeat(step.beat);
             });
           });
-          // 雪花风暴 snow @ bar4 beat2（9.25s）——密鼓继续跑
+          // 收尾：全屏黑 + 红色报错艺术字
           chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('snow'); } catch (e) {}
-            storm.start(680, 'snow');
-            return waitBeat(18);
-          });
-          // 红色报错收尾 err @ bar5 beat0（10.14s = DROP 同刻）：全屏黑 + 红色艺术字
-          chain = chain.then(function () {
-            try {
-              var m = window.__axiomMusic;
-              if (m && m.stormHit) m.stormHit('err');
-            } catch (e) {}
-            return waitBeat(20).then(function () { return self.errFlash(); });
+            return waitBeat(STORM_ERR_BEAT).then(function () { return self.errFlash(); });
           });
         }
       });
