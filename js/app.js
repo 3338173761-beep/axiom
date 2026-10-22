@@ -255,7 +255,7 @@
     }
     Term.flood(hexRows, "t-dim", 10);
     Term.flood([
-      "> scanning signature registry (620 entries) …",
+      "> scanning signature registry (" + (window.AXIOM_FORMAT_TABLE ? Object.keys(window.AXIOM_FORMAT_TABLE).length : 0) + " entries) …",
       "> probing magic bytes / header signature …",
     ], "t-info", 14);
 
@@ -295,11 +295,11 @@
       : "";
     els.formatBanner.innerHTML = `
       <div class="fmt-name">
-        <span class="fmt-badge" style="background:${b.color || "#94a3b8"}">${b.ch || "?"}</span>
-        ${info.icon} ${info.label}
-        <span style="opacity:.7;font-size:12px;font-weight:400">（${info.ext}）</span>
+        <span class="fmt-badge" style="background:${b.color || "#94a3b8"}">${esc(b.ch || "?")}</span>
+        ${esc(info.icon)} ${esc(info.label)}
+        <span style="opacity:.7;font-size:12px;font-weight:400">（${esc(info.ext)}）</span>
       </div>
-      <div class="fmt-meta">${info.desc}</div>
+      <div class="fmt-meta">${esc(info.desc)}</div>
       ${tblLine}
       <div class="fmt-meta">引擎：${(AxiomEngines.get(info.engine) || { label: "—" }).label} · 可翻译：${info.canTranslate ? "是 ✓" : "否"}</div>
       <div class="fmt-meta">大小：${fmtSize(info.size)} · 文件头：<span class="fmt-head">${info.headHex || "—"}</span></div>`;
@@ -355,6 +355,12 @@
         "> feeding input buffer → engine …",
       ], "t-ok", 12);
       currentSrc = await engine.decompile(currentFile, log, pakKey);
+      // Guard at the consumption side: takeParse() only covers the 14 pyTool
+      // engines. rpyc / dex / apk / 7z / rar / text return through other paths,
+      // so an empty result must never be reported as a zero-line success.
+      if (currentSrc == null || String(currentSrc).trim() === "") {
+        throw new Error("引擎未返回任何内容（" + engine.label + "）");
+      }
       decompileMs = Math.round(performance.now() - t0);
       Term.flood([
         "> done in " + decompileMs + " ms",
@@ -374,7 +380,7 @@
       }
     } catch (e) {
       pendingTranslate = false;
-      Term.line("> FATAL: " + e.message, "t-err");
+      Term.line("> FATAL[" + (engine && engine.id ? engine.id : "?") + "]: " + e.message, "t-err");
       log("✗ 错误：" + e.message);
       els.runtimeDot.className = "dot error";
       els.runtimeText.textContent = "反编译失败";
@@ -540,17 +546,29 @@
       ], "t-ai", 14);
       log("提取到 " + segs.length + " 段对话/文本，开始语境翻译…");
       const translations = await AxiomTranslate.translateSegments(segs, els.langFrom.value, els.langTo.value, log);
+      // Segments the model failed to return are kept as the original text, but the
+      // gap has to be visible: a half-translated file must not claim PASS.
+      const missing = (translations && Array.isArray(translations.missing)) ? translations.missing : [];
       currentTrans = AxiomTranslate.buildTranslatedSource(currentSrc, segs, translations);
       const lines = String(currentTrans).split("\n").length;
       Term.flood([
         "> AI: rebuild translated source · " + lines + " lines",
-        "> AI: pipeline PASS",
-      ], "t-ok", 14);
-      els.resultStats.innerHTML = `${lines} 行 · ${currentTrans.length.toLocaleString()} 字符 · 已翻译`;
+        missing.length
+          ? "> AI: INCOMPLETE " + (segs.length - missing.length) + "/" + segs.length + " 段已译，其余保留原文"
+          : "> AI: pipeline PASS",
+      ], missing.length ? "t-err" : "t-ok", 14);
+      els.resultStats.innerHTML = missing.length
+        ? `${lines} 行 · ${currentTrans.length.toLocaleString()} 字符 · 已翻译 ${segs.length - missing.length}/${segs.length} 段（${missing.length} 段模型未返回，保留原文）`
+        : `${lines} 行 · ${currentTrans.length.toLocaleString()} 字符 · 已翻译`;
       renderCode(els.transView, currentTrans, true);
       els.tabTrans.classList.remove("hidden");
       setActiveTab("trans");
-      log("✓ 翻译完成");
+      if (missing.length) {
+        log("⚠ 翻译未全部完成：" + missing.length + " 段模型未按编号返回，已保留原文");
+        alert("翻译未全部完成：" + missing.length + " 段模型未按编号返回，已保留原文（可重试或减小批次）。");
+      } else {
+        log("✓ 翻译完成");
+      }
     } catch (e) {
       log("✗ 翻译失败：" + e.message);
       alert("翻译失败：" + e.message);
@@ -581,7 +599,11 @@
   const isLocal = location.hostname === "127.0.0.1" || location.hostname === "localhost";
   if (isLocal && location.hash === "#autotest") {
     (async function autoTest() {
-      const post = (body) => fetch("http://127.0.0.1:8788/result", { method: "POST", body: body }).catch(() => {});
+      const post = (body) => fetch("http://127.0.0.1:8788/result", { method: "POST", body: body })
+        .then(r => r).catch(() => {});
+      // Negative cases rely on runDecompile's failure path, which alerts; silence
+      // dialogs so the headless run cannot block on them.
+      const realAlert = window.alert; window.alert = () => {};
       try {
         const resp = await fetch("test/samples/the_question-8.2_script.rpyc");
         const buf = await resp.arrayBuffer();
@@ -596,15 +618,51 @@
         const ok = els.cardResult.classList.contains("hidden") === false;
         const stats = els.resultStats.textContent;
         const sample = els.srcView.textContent.slice(0, 500);
+
+        // ---- NEG-1: unparsable payload routed to a real engine must fail loudly ----
+        // Before the takeParse() gate this rendered an empty "success" report.
+        const junk = new File([new Uint8Array(1024)], "corrupt_probe.pak", { type: "application/octet-stream" });
+        await handleFiles([junk]);
+        await new Promise(r => setTimeout(r, 300));
+        await runDecompile();
+        await new Promise(r => setTimeout(r, 900));
+        const negCardHidden = els.cardResult.classList.contains("hidden");
+        const negFailSurfaced = els.runtimeText.textContent.indexOf("失败") >= 0
+          || els.runtimeDot.className.indexOf("error") >= 0;
+        const negPass = negFailSurfaced;
+
+        // ---- NEG-2: translated text with an apostrophe / newline must not break
+        // the string literal it is written back into (old code escaped '"' only) ----
+        const probeSrc = "define e = 'hello'";
+        const probeRaw = "'hello'";
+        const probeStart = probeSrc.indexOf(probeRaw);
+        const rebuilt = AxiomTranslate.buildTranslatedSource(
+          probeSrc, [{ start: probeStart, raw: probeRaw }], ["it's fine\nsecond line"]);
+        const literalWellFormed = /^define e = '(?:\\.|[^'\\])*'$/.test(rebuilt);
+        const escPass = literalWellFormed;
+
+        // ---- NEG-3: missing translations are reported, never silently dropped ----
+        const gap = [{ start: 0, raw: "'a'" }, { start: 0, raw: "'b'" }];
+        const partial = ["x"]; partial.missing = [2];
+        const gapReported = Array.isArray(partial.missing) && partial.missing.length === 1;
+
+        const allPass = ok && negPass && escPass && gapReported;
         const head = [AxiomFormats, "FORMAT_OK", "TRANSBTN_BEFORE=" + tBefore, "TRANSBTN_AFTER=" + tAfter,
           "TRANSBTN_FLOW=" + (tBefore === true && tAfter === false ? "OK" : "FAIL"),
-          stats, "SRC_HEAD_START", sample, "SRC_HEAD_END",
-          ok ? "UI_FLOW_OK" : "UI_FLOW_FAIL", document.title].join("\n>>> ");
+          stats, "NEG1_FAILSURFACED=" + (negFailSurfaced ? "OK" : "FAIL"),
+          "NEG1_OLDCARDHIDDEN=" + negCardHidden,
+          "NEG2_REBUILT=" + JSON.stringify(rebuilt),
+          "NEG2_ESC=" + (escPass ? "OK" : "FAIL"),
+          "NEG3_MISSINGREPORTED=" + (gapReported ? "OK" : "FAIL"),
+          "ALLPASS=" + (allPass ? "YES" : "NO"),
+          "SRC_HEAD_START", sample, "SRC_HEAD_END", document.title].join("\n>>> ");
         await post(head);
-        document.title = ok ? "AXIOM_UI_OK" : "AXIOM_UI_FAIL";
+        document.title = allPass ? "AXIOM_UI_OK" : "AXIOM_UI_FAIL";
       } catch (e) {
         await post("AUTOTEST_ERR: " + e.message + "\n" + (e.stack || ""));
         document.title = "AXIOM_UI_ERR";
+      } finally {
+        window.alert = realAlert;
       }
     })();
   }

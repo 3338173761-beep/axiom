@@ -21,7 +21,7 @@ const AxiomEngines = (function () {
   const PY_BASE = REPO_BASE + "py/";
   // py 引擎脚本的缓存破击号：每改 py/*.py 必须同步 +1，否则浏览器 HTTP 缓存
   // 会让 Pyodide 一直加载旧解析器（本次 CD+G 误判就是这个号停在 v=26 导致的）
-  const PY_CACHE_BUST = 28;
+  const PY_CACHE_BUST = 29;
 
   const registry = {};
   let pyodide = null;
@@ -912,6 +912,20 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     extractTextFromSource: extractTextSegments
   });
 
+  // ---- Engine result gate (fixes silent false success, B1) ----
+  // The 14 pyTool engines used to convert the Python-side sentinel 'NO_PARSE'
+  // into an empty string, so app.js still printed "pipeline status: PASS" and
+  // a green check mark. Every self-test and capability count built on that was
+  // therefore wrong. An unparsed file must now fail explicitly.
+  function takeParse(r, engineId) {
+    const s = r == null ? "" : String(r);
+    if (r == null || s.trim() === "" || /^NO_PARSE\s*$/.test(s)) {
+      throw new Error("未解析" + (engineId ? "（引擎 " + engineId + "）" : "") +
+        "：文件不符合该格式的结构预期，未强行输出内容");
+    }
+    return s;
+  }
+
   // ---- 新引擎：pdf / sqlite / iso / media（零依赖 Pyodide 标准库 + 自研 py 解析器）----
   const metaDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["media_meta"]);
@@ -921,7 +935,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.bin','rb').read()\n"
       + "out = media_meta.parse_media(data, '/axiom/input.bin')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const pdfDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["pdf_parse"]);
@@ -931,7 +945,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.pdf','rb').read()\n"
       + "out = pdf_parse.parse_pdf(data)\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const sqliteDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["sqlite_dump"]);
@@ -943,7 +957,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.db','rb').read()\n"
       + "out = sqlite_dump.dump_db(data, '/axiom/input.db')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const isoDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["iso_tools"]);
@@ -953,7 +967,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.iso','rb').read()\n"
       + "out = iso_tools.parse_iso(data)\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   // ---- v2.8.3 新引擎：audio（追踪器/芯片音乐/MIDI）/ cad / font ----
   const audioDecode = async (file, onLog) => {
@@ -964,7 +978,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.aud','rb').read()\n"
       + "out = audio_meta.parse_audio(data, '/axiom/input.aud')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const cadDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["cad_tools"]);
@@ -974,7 +988,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.cad','rb').read()\n"
       + "out = cad_tools.parse_cad(data, '/axiom/input.cad')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const fontDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["font_tools"]);
@@ -984,7 +998,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.fnt','rb').read()\n"
       + "out = font_tools.parse_font(data, '/axiom/input.fnt')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   // ---- v2.8.4 新引擎：daw（DAW 工程）/ ebook（PalmDB 电子书）/ misc（杂项容器）----
   const dawDecode = async (file, onLog) => {
@@ -995,7 +1009,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.daw','rb').read()\n"
       + "out = daw_tools.parse_daw(data, '/axiom/input.daw')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const ebookDecode = async (file, onLog) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["ebook_tools"]);
@@ -1005,7 +1019,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.ebk','rb').read()\n"
       + "out = ebook_tools.parse_ebook(data, '/axiom/input.ebk')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   const miscDecode = async (file, onLog, keyHex) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["misc_tools"]);
@@ -1019,7 +1033,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input." + ext + "','rb').read()\n"
       + "out = misc_tools.parse_misc(data, '/axiom/input." + ext + "', " + keyArg + ")\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   // ---- v2.8.5 新引擎：vocal（歌声合成工程）----
   const vocalDecode = async (file, onLog) => {
@@ -1030,7 +1044,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.voc','rb').read()\n"
       + "out = vocal_tools.parse_vocal(data, '/axiom/input.voc')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
 
   register("pdf", { id: "pdf", label: "自研 PDF 解析器（页数/元数据/有限文本流）", canTranslate: false, formats: ["pdf"], decompile: pdfDecode });
@@ -1064,7 +1078,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.rom','rb').read()\n"
       + "out = rom_tools.parse_rom(data, '/axiom/input.rom')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   register("rom", { id: "rom", label: "游戏主机 ROM 头解析引擎（NES/GB/GBA/NDS/N64/SFC/FDS/CIA/WBFS/XCI/MDS，浏览器内）", canTranslate: false,
     formats: ["nes", "gb", "gbc", "gba", "nds", "n64", "z64", "v64", "sfc", "smc", "fds", "cia", "wbfs", "xci", "mds", "3ds"], decompile: romDecode });
@@ -1077,7 +1091,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.img','rb').read()\n"
       + "out = image_tools.parse_image_raw(data, '/axiom/input.img')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   register("image", { id: "image", label: "TIFF/相机 RAW 头解析引擎（dng/cr2/nef/arw/orf/pef/rw2/srw，浏览器内）", canTranslate: false,
     formats: ["dng", "cr2", "crw", "nef", "arw", "orf", "pef", "rw2", "srw", "tif", "tiff", "raw"], decompile: imageDecode });
@@ -1090,7 +1104,7 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "data = open('/axiom/input.vid','rb').read()\n"
       + "out = video_tools.parse_video(data, '/axiom/input.vid')\n"
       + "out if out is not None else 'NO_PARSE'");
-    return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
+    return takeParse(r);
   };
   register("video", { id: "video", label: "视频容器头解析引擎（avi/mp4/mov/m4v/f4v/mpeg/m2ts，浏览器内）", canTranslate: false,
     formats: ["avi", "mp4", "mov", "m4v", "f4v", "mpeg", "mpg", "vob", "m2ts", "mts", "3gp", "3g2", "3gpp"], decompile: videoDecode });

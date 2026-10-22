@@ -140,7 +140,7 @@ async function handleFile(file) {
   const buf = await file.arrayBuffer();
   const b64 = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
   if (mode === "scan") {
-    output.innerHTML = '<span class="engine-tag" style="color:#f87171">▸ 安全扫描 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
+    output.innerHTML = '<span class="engine-tag" style="color:#f87171">▸ 安全扫描 ' + escapeHtml(file.name) + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
     try {
       const r = await fetch("/scan", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -150,7 +150,7 @@ async function handleFile(file) {
       if (j.ok) {
         const s = j.summary, lv = s.risk_level;
         const color = lv.indexOf("严重") >= 0 ? "#f87171" : lv.indexOf("高危") >= 0 ? "#fb923c" : lv.indexOf("中危") >= 0 ? "#fbbf24" : "#34d399";
-        output.innerHTML = '<div style="font-size:16px;margin-bottom:6px">风险等级：<b style="color:' + color + '">' + lv + '</b>（评分 ' + s.risk_score + '）</div>' +
+        output.innerHTML = '<div style="font-size:16px;margin-bottom:6px">风险等级：<b style="color:' + color + '">' + escapeHtml(lv) + '</b>（评分 ' + s.risk_score + '）</div>' +
           '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px">命中特征 ' + s.findings_count + ' 项 · 导入函数 ' + s.import_count + ' 个 · 字符串 ' + s.string_count + ' 条' + (s.dotnet ? ' · .NET 程序集' : '') + ' · 耗时 ' + j.ms + ' ms</div>' +
           '<div style="border-top:1px solid #1e293b;padding-top:10px">' + escapeHtml(j.report).split("\n").slice(0, 60).join("<br>") + '</div>';
       } else {
@@ -162,7 +162,7 @@ async function handleFile(file) {
     return;
   }
   $("#outPlaceholder") && ($("#outPlaceholder").style.display = "none");
-  output.innerHTML = '<span class="engine-tag">▸ 提交 ' + file.name + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
+  output.innerHTML = '<span class="engine-tag">▸ 提交 ' + escapeHtml(file.name) + '（' + (file.size/1024).toFixed(1) + ' KB）…</span>';
   try {
     const r = await fetch("/decompile", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -170,7 +170,7 @@ async function handleFile(file) {
     });
     const j = await r.json();
     if (j.ok) {
-      output.innerHTML = '<div class="engine-tag">引擎：' + j.desc + ' · 耗时 ' + j.ms + ' ms</div><br>' + escapeHtml(j.out);
+      output.innerHTML = '<div class="engine-tag">引擎：' + escapeHtml(j.desc) + ' · 耗时 ' + j.ms + ' ms</div><br>' + escapeHtml(j.out);
     } else {
       output.innerHTML = '<div class="err">✘ ' + escapeHtml(j.err) + '</div>';
     }
@@ -178,7 +178,7 @@ async function handleFile(file) {
     output.innerHTML = '<div class="err">✘ 请求失败：' + escapeHtml(e.message) + '</div>';
   }
 }
-function escapeHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escapeHtml(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 // ---- 终端轮询 ----
 async function pollLog() {
@@ -192,7 +192,7 @@ async function pollLog() {
         div.className = "term-line";
         const m = l.match(/^\[([^\]]+)\] \[([^\]]+)\] (.*)$/s);
         if (m) {
-          div.innerHTML = '<span class="term-time">[' + m[1] + ']</span> <span class="term-' + m[2] + '">[' + m[2] + ']</span> ' + escapeHtml(m[3]);
+          div.innerHTML = '<span class="term-time">[' + escapeHtml(m[1]) + ']</span> <span class="term-' + escapeHtml(m[2]) + '">[' + escapeHtml(m[2]) + ']</span> ' + escapeHtml(m[3]);
         } else {
           div.textContent = l;
         }

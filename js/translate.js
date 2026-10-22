@@ -79,15 +79,39 @@ const AxiomTranslate = (function () {
         onLog && onLog("翻译失败：" + e.message);
         throw e;
       }
-      // 解析 "#编号 译文"
-      const re = /#(\d+)\s+(.+)/g;
-      let m;
-      while ((m = re.exec(out)) !== null) {
-        const idx = parseInt(m[1], 10) - 1;
-        if (idx >= i && idx < i + BATCH) results[idx] = m[2].trim();
+      // Parse "#N text". A translation may legally wrap onto several lines, so a
+      // line without its own "#N" prefix continues the previous index. The old
+      // regex /#(\d+)\s+(.+)/g dropped every continuation line silently.
+      let lastIdx = -1;
+      for (const rawLine of String(out).split(/\r?\n/)) {
+        const m = /^#\s*(\d+)\s(.*)$/.exec(rawLine);
+        if (m) {
+          const idx = parseInt(m[1], 10) - 1;
+          if (idx >= i && idx < i + batch.length) { results[idx] = m[2]; lastIdx = idx; }
+          else { lastIdx = -1; }
+        } else if (lastIdx >= 0 && rawLine.trim() !== "") {
+          results[lastIdx] += "\n" + rawLine;
+        }
       }
     }
+    // Anything the model failed to return must be reported, never dropped quietly:
+    // a half-translated script file used to look like a finished job.
+    const missing = [];
+    for (let k = 0; k < segs.length; k++) { if (results[k] == null) missing.push(k + 1); }
+    results.missing = missing;
     return results;
+  }
+
+  // Rebuild a string literal from translated text, preserving the original quote
+  // style. Backslash must be escaped first, then the active quote, then line
+  // breaks. The previous code escaped only '"' regardless of the quote in use, so
+  // an apostrophe in a single-quoted literal (e.g. "don't") produced broken
+  // source, and a newline in the translation broke the literal outright.
+  function toLiteral(text, quote) {
+    let s = String(text).replace(/\\/g, "\\\\").replace(/\r/g, "");
+    s = s.replace(/\n/g, "\\n");
+    s = quote === "'" ? s.replace(/'/g, "\\'") : s.replace(/"/g, '\\"');
+    return quote + s + quote;
   }
 
   // ---------- 回填：生成翻译版源码 ----------
@@ -101,12 +125,12 @@ const AxiomTranslate = (function () {
       const seg = segs[i];
       if (seg.plain) {
         // 纯文本段（text 引擎）：直接替换整行，不加引号
-        edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: t });
+        edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: String(t).replace(/\r/g, "") });
         continue;
       }
       // 保留原始引号风格（rpyc 等源码段）
       const quote = seg.raw.startsWith('"') ? '"' : "'";
-      edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: quote + t.replace(/"/g, '\\"') + quote });
+      edits.push({ start: seg.start, end: seg.start + seg.raw.length, text: toLiteral(t, quote) });
     }
     edits.sort((a, b) => b.start - a.start);
     for (const e of edits) {

@@ -148,10 +148,24 @@ def parse_cdg(data):
     """CD+G：98 字节指令包（16 子码包）"""
     if len(data) < 98:
         return None
-    # CD+G 包：开头常为 0x00 控制字节 + 指令
-    if data[0] not in (0x00, 0x01) and not data.startswith(b"CD"):
+    # Real CD+G is a whole number of 16-byte subcode packets whose first packet
+    # carries the ASCII 'CD' marker at offset 3..4. The previous gate only tested
+    # data[0] in (0x00, 0x01), so any zero-filled or incrementing buffer was
+    # reported as a karaoke track -- the root cause of the UE-pak-as-CDG misfire.
+    has_marker = data[3:5] == b"CD"
+    packets = 0
+    struct_ok = 0
+    for i in range(0, len(data) - 15, 16):
+        packets += 1
+        if data[i + 1] < 24 and data[i + 2] in (0x2C, 0x2D, 0x2E, 0x2F, 0x36, 0x37):
+            struct_ok += 1
+    if not has_marker and not (packets and struct_ok * 100 >= packets * 80):
         return None
     out = ["CD+Graphics（CD+G 卡拉OK 图形轨）"]
+    if has_marker:
+        out.append("首包标记: 'CD' @0x03（结构合法子码包 %d/%d）" % (struct_ok, packets))
+    else:
+        out.append("结构合法子码包 %d/%d" % (struct_ok, packets))
     out.append("指令包: %d" % (len(data) // 98))
     cmds = {}
     for i in range(0, len(data) - 96, 98):
@@ -980,20 +994,34 @@ def parse_misc(data, filename, key_hex=None):
         r = parse_probe(data, labels.get(ext, "数据"))
         if r:
             return r
-    for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
+    # CD+G is only tried when the extension actually says so. Its subcode layout
+    # has no strong leading signature, so leaving it in the blind loop below let
+    # it claim unrelated binaries (it matched a zero-filled buffer before).
+    if ext == "cdg":
+        r = parse_cdg(data)
+        if r:
+            return r
+    # Blind fallback probing. Keep ONLY parsers with a real magic-number check here.
+    # parse_img / parse_dat / parse_nwc / parse_rpm / parse_prt used to sit in this
+    # loop as well: they match almost anything (parse_dat fires on any payload of
+    # 16+ bytes), so every unmatched misc file got mislabelled as a generic ".dat"
+    # data file -- the same class of bug that reported a UE pak as a CD+G karaoke
+    # track. They still run above via their explicit extension branches, so a real
+    # .dat file keeps working; they are just no longer used as a catch-all.
+    for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
                    parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak,
-                   parse_ue_pak,
-                   parse_img, parse_dat, parse_nwc, parse_rpm, parse_prt):
+                   parse_ue_pak):
         try:
             r = parser(data)
         except Exception:
             continue
         if r is not None:
             return r
-    if ext:
-        return "该格式（.%s）暂无解析器；大小 %d 字节。" % (ext, len(data))
-    return "未知二进制：%d 字节，头 %s" % (len(data), " ".join("%02X" % b for b in data[:16]))
+    # Nothing genuinely matched -> return None so the caller reports "unparsed".
+    # The old code returned a human-readable "no parser for this format" string,
+    # which the front end counted as a successful parse (silent false success).
+    return None
 
 
 if __name__ == "__main__":
