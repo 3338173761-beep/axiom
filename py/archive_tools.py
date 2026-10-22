@@ -38,6 +38,22 @@ def _uudecode(data):
     return bytes(out)
 
 
+# Decompression-bomb guards. Everything here used to read the WHOLE archive into
+# memory with no ceiling, so a few-kilobyte zip could ask for gigabytes and hang
+# or crash the tab. Caps are generous enough for real game archives and low
+# enough that a hostile member list cannot exhaust the Pyodide heap.
+MAX_DECOMP_BYTES = 192 * 1024 * 1024
+MAX_LIST_ENTRIES = 20000
+
+
+def _capped(text, truncated, total):
+    if not truncated:
+        return text
+    return text + ("\n\n[已截断：解压累计 %s，超过 %s 上限或 %d 条目上限，"
+                   "剩余成员未读取（zip/tar 炸弹防护）]"
+                   % (_fmt_size(total), _fmt_size(MAX_DECOMP_BYTES), MAX_LIST_ENTRIES))
+
+
 def _fmt_size(n):
     if n < 1024: return "%d B" % n
     if n < 1024 * 1024: return "%.1f KB" % (n / 1024)
@@ -81,18 +97,25 @@ def _tar(data, name):
     except Exception as e:
         return "tar 解析失败：%s" % e
     files = []
+    total = 0
+    truncated = False
     try:
         for m in tf.getmembers():
+            if len(files) >= MAX_LIST_ENTRIES or total + m.size > MAX_DECOMP_BYTES:
+                truncated = True
+                break
             if m.isfile():
                 f = tf.extractfile(m)
-                files.append((m.name, f.read() if f else b""))
+                blob = f.read() if f else b""
+                total += len(blob)
+                files.append((m.name, blob))
             elif m.isdir():
                 files.append((m.name.rstrip("/") + "/", b""))
     except Exception as e:
         return "tar 解包失败：%s" % e
     finally:
         tf.close()
-    return _list_result(files, name)
+    return _capped(_list_result(files, name), truncated, total)
 
 
 # ---------- zip ----------
@@ -102,20 +125,28 @@ def _zip(data, name):
     except Exception as e:
         return "zip 解析失败：%s" % e
     files = []
+    total = 0
+    truncated = False
     try:
         for m in zf.infolist():
+            if len(files) >= MAX_LIST_ENTRIES or total + m.file_size > MAX_DECOMP_BYTES:
+                truncated = True
+                break
             if m.is_dir():
                 files.append((m.filename.rstrip("/") + "/", b""))
             else:
                 try:
-                    files.append((m.filename, zf.read(m)))
+                    blob = zf.read(m)
                 except Exception:
                     files.append((m.filename + " [读取失败]", b""))
+                    continue
+                total += len(blob)
+                files.append((m.filename, blob))
     except Exception as e:
         return "zip 解包失败：%s" % e
     finally:
         zf.close()
-    return _list_result(files, name)
+    return _capped(_list_result(files, name), truncated, total)
 
 
 # ---------- 单文件压缩 ----------

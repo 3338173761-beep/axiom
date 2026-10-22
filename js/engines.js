@@ -21,7 +21,7 @@ const AxiomEngines = (function () {
   const PY_BASE = REPO_BASE + "py/";
   // py 引擎脚本的缓存破击号：每改 py/*.py 必须同步 +1，否则浏览器 HTTP 缓存
   // 会让 Pyodide 一直加载旧解析器（本次 CD+G 误判就是这个号停在 v=26 导致的）
-  const PY_CACHE_BUST = 29;
+  const PY_CACHE_BUST = 30;
 
   const registry = {};
   let pyodide = null;
@@ -1025,7 +1025,13 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["misc_tools"]);
     // 用真实扩展名写输入（不能写死 .misc，否则 parse_misc 的扩展名路由
     // 全部失效，掉进末尾盲猜循环导致误判——如 UE pak 被猜成 CD+G）
-    const ext = (file.name.split(".").pop() || "misc").toLowerCase();
+    // Extension is taken from the user's file name and is interpolated into
+    // BOTH the MEMFS path and the Python source string below, so it must be a
+    // bare token: a quote, brace or slash in a file name used to break the
+    // generated source (or inject Python inside the WASM sandbox). Anything
+    // unexpected degrades to the generic "misc" input instead.
+    const rawExt = (file.name.split(".").pop() || "misc").toLowerCase();
+    const ext = /^[a-z0-9]{1,12}$/.test(rawExt) ? rawExt : "misc";
     const n = await writeInput(p, "/axiom/input." + ext, file);
     onLog && onLog("misc: 杂项容器（lnk/torrent/cue/cdg/eps/plist/idx/vector/unity/art/pak…）→ misc_tools.py");
     const keyArg = (keyHex && /^[0-9a-fA-F]{64}$/.test(keyHex)) ? "'" + keyHex + "'" : "None";

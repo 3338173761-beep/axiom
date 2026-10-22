@@ -197,7 +197,9 @@ const AxiomFormats = (function () {
       else if (KNOWN_ENGINE[ext]) id = ext;                          // docx 等 zip 容器走已挂引擎
       else id = "zip";                                               // 普通 zip → 归档引擎
     }
-    else if (MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
+    // zlib 头不是 Ren'Py 的证据：78 9C 是无数格式的开头，仅凭魔数判 rpyc 会让
+    // 任意压缩文件被塞进 rpycdec 引擎然后报错弹窗。必须同时要求 Ren'Py 扩展名。
+    else if (["rpyc", "rpymc", "save"].indexOf(ext) >= 0 && MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
     else if (ext === "pyc" || ext === "pyo") id = "pyc";
 
     // 魔数命中后：若扩展名在格式表内，补 tableHit 供元数据使用

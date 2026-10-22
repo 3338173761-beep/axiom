@@ -80,7 +80,22 @@ class Reader:
         return v
 
 
+MAX_ENTRIES = 100000
+
+
+def _checked_count(n, r, what):
+    """Counts declared inside the file are attacker controlled. A single uint64
+    could ask for a 2**63-element list and take the whole browser tab down (the
+    Pyodide heap) before any later bounds check ever runs. Cap against both a
+    fixed ceiling and the real buffer size: every declared entry costs at least
+    one header byte, so a count above the file size is by definition bogus."""
+    if n is None or n < 0 or n > MAX_ENTRIES or n > len(r.data):
+        raise ValueError("%s 数量异常：%s（缓冲仅 %d 字节）" % (what, n, len(r.data)))
+    return n
+
+
 def read_boolean(r, count):
+    count = _checked_count(count, r, "Boolean")
     allv = r.byte()
     if allv == 1:
         return [True] * count
@@ -276,7 +291,7 @@ def _read_unpack_info(r):
     pid = r.byte()
     if pid != K_FOLDER:
         raise ValueError("UnpackInfo 期望 FOLDER 得到 0x%02x" % pid)
-    num_folders = r.uint64()
+    num_folders = _checked_count(r.uint64(), r, "Folder")
     external = r.byte()
     folders = [_read_folder(r) for _ in range(num_folders)]
     unpack_sizes = []
@@ -366,7 +381,7 @@ def _read_streams_info(r, base_pos, file_data):
 
 
 def _read_files_info(r):
-    num_files = r.uint64()
+    num_files = _checked_count(r.uint64(), r, "File")
     files = [{"emptystream": False} for _ in range(num_files)]
     num_empty = 0
     while True:

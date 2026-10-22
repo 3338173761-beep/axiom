@@ -14,6 +14,19 @@ def _read_zip(data):
         raise ValueError("zip 容器解析失败：%s" % e)
 
 
+# A real document.xml is a few megabytes at most. Refuse to inflate any single
+# member whose DECLARED size is absurd, so a zip bomb cannot exhaust the heap.
+MAX_XML_BYTES = 64 * 1024 * 1024
+
+
+def _read_member(zf, path):
+    info = zf.getinfo(path)
+    if info.file_size > MAX_XML_BYTES:
+        raise ValueError("%s 声明解压后 %d 字节，超过 %d 上限（zip 炸弹防护），已拒绝解压"
+                         % (path, info.file_size, MAX_XML_BYTES))
+    return zf.read(path)
+
+
 def _xml_texts(xml, tag):
     # 提取指定标签内的纯文本（含子标签合并）
     return re.findall(r"<%s[^>]*>([^<]*)</%s>" % (tag, tag), xml)
@@ -29,7 +42,7 @@ def extract_docx(data):
         path = cand[0]
     else:
         path = "word/document.xml"
-    xml = zf.read(path).decode("utf-8", errors="replace")
+    xml = _read_member(zf, path).decode("utf-8", errors="replace")
     paras = re.split(r"</w:p>", xml)
     out = []
     for p in paras:
@@ -52,7 +65,7 @@ def extract_xlsx(data):
     # sharedStrings（共享字符串表）
     ss = {}
     if "xl/sharedStrings.xml" in names:
-        xml = zf.read("xl/sharedStrings.xml").decode("utf-8", errors="replace")
+        xml = _read_member(zf, "xl/sharedStrings.xml").decode("utf-8", errors="replace")
         for m in re.finditer(r"<si>(.*?)</si>", xml, re.S):
             idx = len(ss)
             txt = "".join(re.findall(r"<t[^>]*>([^<]*)</t>", m.group(1)))

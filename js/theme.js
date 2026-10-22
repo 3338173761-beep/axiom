@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.40',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.41',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
