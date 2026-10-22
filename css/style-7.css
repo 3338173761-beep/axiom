@@ -207,6 +207,10 @@ body {
 .lang-row { align-items: center; }
 .lang-arrow { color: var(--text-faint); }
 .key-row { display: flex; gap: 9px; }
+.pak-key-row { flex-wrap: wrap; }
+.pak-key-box { display: flex; gap: 8px; flex: 1 1 320px; min-width: 0; }
+.pak-key-box .text-input { flex: 1; min-width: 180px; font-family: "Share Tech Mono", Consolas, monospace; font-size: 12px; }
+.pak-key-box .btn { white-space: nowrap; }
 
 .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: none; }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -324,6 +328,8 @@ body {
   .actions-row { flex-direction: column; }
   .actions-row .btn { justify-content: center; }
   .set-row { flex-wrap: wrap; }
+  .pak-key-box { flex-direction: column; }
+  .pak-key-box .text-input { width: 100%; min-width: 0; }
   .result-stats { margin-left: 0; width: 100%; }
 }
 

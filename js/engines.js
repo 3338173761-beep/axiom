@@ -19,6 +19,9 @@ const AxiomEngines = (function () {
   const REPO_BASE = location.pathname.replace(/\/[^\/]*$/, "/");
   const WHEELS_BASE = REPO_BASE + "test/wheels";
   const PY_BASE = REPO_BASE + "py/";
+  // py 引擎脚本的缓存破击号：每改 py/*.py 必须同步 +1，否则浏览器 HTTP 缓存
+  // 会让 Pyodide 一直加载旧解析器（本次 CD+G 误判就是这个号停在 v=26 导致的）
+  const PY_CACHE_BUST = 28;
 
   const registry = {};
   let pyodide = null;
@@ -102,7 +105,7 @@ const AxiomEngines = (function () {
     try { p.FS.mkdir("/axiom"); p.FS.mkdir("/axiom/py"); } catch (e) {}
     const pycode = [];
     for (const name of scriptNames) {
-      const resp = await fetch(`${PY_BASE}${name}.py?v=26`);
+      const resp = await fetch(`${PY_BASE}${name}.py?v=${PY_CACHE_BUST}`);
       if (!resp.ok) throw new Error(`引擎脚本 py/${name}.py 加载失败 (HTTP ${resp.status})`);
       const text = await resp.text();
       p.FS.writeFile(`/axiom/py/${name}.py`, text);
@@ -1004,13 +1007,17 @@ sevenz.decompile_7z(data, ${JSON.stringify(file.name)})
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };
-  const miscDecode = async (file, onLog) => {
+  const miscDecode = async (file, onLog, keyHex) => {
     const p = await loadEngineScripts(await loadPyodideRuntime(), ["misc_tools"]);
-    const n = await writeInput(p, "/axiom/input.misc", file);
-    onLog && onLog("misc: 杂项容器（lnk/torrent/cue/wotreplay/cdg/eps/plist/idx）→ misc_tools.py");
+    // 用真实扩展名写输入（不能写死 .misc，否则 parse_misc 的扩展名路由
+    // 全部失效，掉进末尾盲猜循环导致误判——如 UE pak 被猜成 CD+G）
+    const ext = (file.name.split(".").pop() || "misc").toLowerCase();
+    const n = await writeInput(p, "/axiom/input." + ext, file);
+    onLog && onLog("misc: 杂项容器（lnk/torrent/cue/cdg/eps/plist/idx/vector/unity/art/pak…）→ misc_tools.py");
+    const keyArg = (keyHex && /^[0-9a-fA-F]{64}$/.test(keyHex)) ? "'" + keyHex + "'" : "None";
     const r = await p.runPythonAsync("import misc_tools\n"
-      + "data = open('/axiom/input.misc','rb').read()\n"
-      + "out = misc_tools.parse_misc(data, '/axiom/input.misc')\n"
+      + "data = open('/axiom/input." + ext + "','rb').read()\n"
+      + "out = misc_tools.parse_misc(data, '/axiom/input." + ext + "', " + keyArg + ")\n"
       + "out if out is not None else 'NO_PARSE'");
     return String(r == null ? "" : r).replace(/^NO_PARSE\s*$/, "");
   };

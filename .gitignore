@@ -4,17 +4,40 @@
 *.key
 *.pem
 
-# 调试/临时输出
-*.txt
-shots/
-samples/
-_debug/
-*.log
-memmy_*.json
-_chrome_*/
-test/_chrome_*/
+# 调试/临时输出（精确规则，禁止再用通杀 *.txt —— 33 份逐版摘要必须入库）
+/chk*.txt
+/t.txt
+/tmp*.txt
 win_server_log*.txt
 smoke_out*.txt
+*_probe*.txt
+*.log
+_debug/
+
+# 浏览器测试产物（headless Chrome profile / 缓存 / 系统 DLL 副本，约 600MB，绝不入库）
+test/_chrome*/
+test/chrome_*/
+test/_hc_*/
+chrome_*/
+BrowserMetrics*
+component_crx_cache/
+*.tmp-profile
+
+# 大二进制样本（Pages 不需要，走本地）
+*.zip
+*.pak
+samples/
+shots/
+
+# test/ 默认整体排除（里面有 1079 个 .py + 53 个 .pyd 的解压 Python 发行件、168 个调试 txt、
+# 几十个 headless Chrome profile）。只显式放回真正需要的：
+test/*
+!test/wheels/
+!test/gh_sync.py
+!test/gen_format_data.py
+!test/unrar/
+!test/sevenz_test/
+!test/samples/
 
 # 系统
 Thumbs.db

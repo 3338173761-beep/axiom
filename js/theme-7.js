@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.25',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.35',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -471,14 +471,21 @@
       this.overlay.style.visibility = 'visible';
       // Beat-grid tool: wait until an absolute grid beat (shared tempo map
       // with the music engine -> visual flashes land exactly on the grid).
+      // Clock: WALL clock anchored at chain start, driven by the engine's
+      // pure-math gridSecAt() (seconds from grid origin). This intentionally
+      // does NOT depend on ctx.state / ctx.currentTime: the visual storm must
+      // always run the full sequence at the intended tempo even when audio is
+      // muted or the AudioContext is suspended. Audio stays on the same beat
+      // table (gridOriginSec + secOfBeat), so flash & kick stay in sync.
+      var wall0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
       function waitBeat(beat) {
         return new Promise(function (r) {
           var m = window.__axiomMusic;
-          var a = window.__axiomAudio;
-          if (!m || !m.overclockSec || !a || !a.ctx) { setTimeout(r, 8); return; }
-          var d = m.overclockSec(beat) - a.ctx.currentTime;
-          if (d <= 0) { r(); return; }
-          setTimeout(r, d * 1000);
+          var sec = (m && typeof m.gridSecAt === 'function') ? m.gridSecAt(beat) : null;
+          if (sec == null || !isFinite(sec) || sec < 0) sec = beat * 0.4;
+          var now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+          var wait = Math.max(0, wall0 + sec * 1000 - now);
+          setTimeout(r, wait);
         });
       }
       // T0 简短通电：一次白闪（瞬间全黑 → 白脉冲）
@@ -487,7 +494,7 @@
       // 每行打完给一声轻 tick（正常命令行音效感）
       CMD_SCRIPT.forEach(function (line) {
         chain = chain.then(function () {
-          var s = window.__axiomSfx; if (s && s.tick) s.tick();
+          try { var s = window.__axiomSfx; if (s && s.tick) s.tick(); } catch (e) {}
           return self.addLine(line, line.ms);
         });
         if (line.t === 'cmd' || line.t === 'err') chain = chain.then(function () { return new Promise(function (r) { setTimeout(r, 60); }); });
@@ -495,43 +502,45 @@
         if (line.t === 'alert') {
           // 音频：警示条 → 警报床起（长鸣贯穿整个错乱段，缓 fade），卡 bar0 beat1
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart();
+            try { var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart(); } catch (e) {}
             return waitBeat(1);
           });
           // 第一波：白屏 + 红色风暴（boom1 @ bar1 beat0 = 2.31s，与音乐同拍）
           chain = chain.then(function () { flash(80); return waitBeat(4); });
           chain = chain.then(function () {
-            // 音频：SUB BOOM 与风暴同刻 + 300 BPM 密鼓风暴启动
-            var m = window.__axiomMusic;
-            if (m) { if (m.stormHit) m.stormHit('boom1'); if (m.stormDrumsStart) m.stormDrumsStart(); }
+            // 音频：SUB BOOM 与风暴同刻（密鼓音乐已移除，仅保留冲击音效）
+            try {
+              var m = window.__axiomMusic;
+              if (m && m.stormHit) m.stormHit('boom1');
+            } catch (e) {}
             storm.start(720, 'red');
             return waitBeat(6);
           });
           // 红闪 @ bar1 beat2（3.39s）+ 白闪 @ bar1 beat3（3.93s）
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
             flash(120, 'rgba(255,77,94,0.45)');
             return waitBeat(6);
           });
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
             flash(90, 'rgba(209,247,255,0.4)');
             return waitBeat(8);
           });
           // 第二波：青色风暴 boom2 @ bar2 beat0（4.47s）
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('boom2');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('boom2'); } catch (e) {}
             storm.start(600, 'green');
             return waitBeat(10);
           });
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
             flash(100, 'rgba(209,247,255,0.5)');
             return waitBeat(12);
           });
           // 第三波：红色收敛 hit3 @ bar3 beat0（6.49s）
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('hit3');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('hit3'); } catch (e) {}
             storm.start(420, 'red');
             return waitBeat(14);
           });
@@ -545,24 +554,23 @@
           ];
           finCols.forEach(function (f, fi) {
             chain = chain.then(function () {
-              var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash');
+              try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('flash'); } catch (e) {}
               flash(f[1], f[0]);
               return waitBeat(14 + fi);
             });
           });
           // 雪花风暴 snow @ bar4 beat2（9.25s）——密鼓继续跑
           chain = chain.then(function () {
-            var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('snow');
+            try { var m = window.__axiomMusic; if (m && m.stormHit) m.stormHit('snow'); } catch (e) {}
             storm.start(680, 'snow');
             return waitBeat(18);
           });
           // 红色报错收尾 err @ bar5 beat0（10.14s = DROP 同刻）：全屏黑 + 红色艺术字
           chain = chain.then(function () {
-            var m = window.__axiomMusic;
-            if (m) {
-              if (m.stormHit) m.stormHit('err');
-              if (m.stormDrumsStop) m.stormDrumsStop();
-            }
+            try {
+              var m = window.__axiomMusic;
+              if (m && m.stormHit) m.stormHit('err');
+            } catch (e) {}
             return waitBeat(20).then(function () { return self.errFlash(); });
           });
         }
@@ -593,14 +601,15 @@
       state.active = true;
       state.entering = false;
       // Audio: switch the groove to overclock form (also handled by sting cue +6s).
-      var m = window.__axiomMusic;
-      if (m && m.sequencer) m.sequencer.setForm(2);
-      // Audio: tear down storm props now that form 2 is live.
-      if (m) {
-        if (m.stormDrumsStop) m.stormDrumsStop();
-        if (m.alarmBedStop) m.alarmBedStop();
-        if (m.noiseWallStop) m.noiseWallStop();
-      }
+      try {
+        var m = window.__axiomMusic;
+        if (m && m.sequencer) m.sequencer.setForm(2);
+        // Audio: tear down storm props now that form 2 is live.
+        if (m) {
+          if (m.alarmBedStop) m.alarmBedStop();
+          if (m.noiseWallStop) m.noiseWallStop();
+        }
+      } catch (e) {}
       var btn = $('swapBtn');
       if (btn) {
         btn.classList.remove('m-open', 'm-out', 'm-hide');

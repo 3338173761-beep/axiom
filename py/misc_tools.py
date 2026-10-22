@@ -408,6 +408,365 @@ def parse_pak(data):
     return "\n".join(out)
 
 
+# ============================================================
+# AES-256 (ECB) — 纯 Python 实现（Pyodide 无标准 AES；Web Crypto
+# 不支持 ECB，故手写）。用于 UE pak 加密 index 解密。
+# 已知向量（FIPS-197 C.3）：
+#   key=000102...1f  pt=00112233445566778899aabbccddeeff
+#   ct=8ea2b7ca516745bfeafc49904b496089
+# ============================================================
+_AES_SBOX = (
+    0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+    0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+    0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+    0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+    0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+    0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+    0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+    0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+    0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+    0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+    0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+    0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+    0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16)
+_AES_INV_SBOX = tuple(_AES_SBOX.index(i) for i in range(256))
+
+
+def _aes_xtime(a):
+    a <<= 1
+    if a & 0x100:
+        a ^= 0x11b
+    return a & 0xff
+
+
+def _aes_gmul(a, b):
+    p = 0
+    for _ in range(8):
+        if b & 1:
+            p ^= a
+        hi = a & 0x80
+        a = (a << 1) & 0xff
+        if hi:
+            a ^= 0x1b
+        b >>= 1
+    return p
+
+
+def _aes_key_expand(key):
+    """AES-256 密钥扩展：32 字节 → 15 轮密钥（每轮 16 字节）"""
+    w = [list(key[i:i + 4]) for i in range(0, 32, 4)]
+    rcon = 1
+    for i in range(8, 60):
+        t = list(w[i - 1])
+        if i % 8 == 0:
+            t = t[1:] + t[:1]
+            t = [_AES_SBOX[b] for b in t]
+            t[0] ^= rcon
+            rcon = (rcon << 1) ^ 0x11b if rcon & 0x80 else rcon << 1
+        elif i % 8 == 4:
+            t = [_AES_SBOX[b] for b in t]
+        w.append([w[i - 8][j] ^ t[j] for j in range(4)])
+    return w
+
+
+def _aes_sub_bytes(s):
+    for i in range(16):
+        s[i] = _AES_SBOX[s[i]]
+
+
+def _aes_inv_sub_bytes(s):
+    for i in range(16):
+        s[i] = _AES_INV_SBOX[s[i]]
+
+
+def _aes_shift_rows(s):
+    # 显式置换：行 r 循环左移 r 字节
+    # 行0: 0,4,8,12 不变；行1: 4,8,12,0；行2: 8,12,0,4；行3: 12,0,4,8
+    s[0], s[4], s[8], s[12] = s[0], s[4], s[8], s[12]
+    s[1], s[5], s[9], s[13] = s[5], s[9], s[13], s[1]
+    s[2], s[6], s[10], s[14] = s[10], s[14], s[2], s[6]
+    s[3], s[7], s[11], s[15] = s[15], s[3], s[7], s[11]
+
+
+def _aes_inv_shift_rows(s):
+    s[0], s[4], s[8], s[12] = s[0], s[4], s[8], s[12]
+    s[1], s[5], s[9], s[13] = s[13], s[1], s[5], s[9]
+    s[2], s[6], s[10], s[14] = s[10], s[14], s[2], s[6]
+    s[3], s[7], s[11], s[15] = s[7], s[11], s[15], s[3]
+
+
+def _aes_mix_columns(s):
+    for c in range(0, 16, 4):
+        a0, a1, a2, a3 = s[c], s[c + 1], s[c + 2], s[c + 3]
+        s[c] = _aes_xtime(a0) ^ (_aes_xtime(a1) ^ a1) ^ a2 ^ a3
+        s[c + 1] = a0 ^ _aes_xtime(a1) ^ (_aes_xtime(a2) ^ a2) ^ a3
+        s[c + 2] = a0 ^ a1 ^ _aes_xtime(a2) ^ (_aes_xtime(a3) ^ a3)
+        s[c + 3] = (_aes_xtime(a0) ^ a0) ^ a1 ^ a2 ^ _aes_xtime(a3)
+
+
+def _aes_inv_mix_columns(s):
+    for c in range(0, 16, 4):
+        a0, a1, a2, a3 = s[c], s[c + 1], s[c + 2], s[c + 3]
+        s[c] = (_aes_gmul(a0, 14) ^ _aes_gmul(a1, 11) ^ _aes_gmul(a2, 13) ^ _aes_gmul(a3, 9))
+        s[c + 1] = (_aes_gmul(a0, 9) ^ _aes_gmul(a1, 14) ^ _aes_gmul(a2, 11) ^ _aes_gmul(a3, 13))
+        s[c + 2] = (_aes_gmul(a0, 13) ^ _aes_gmul(a1, 9) ^ _aes_gmul(a2, 14) ^ _aes_gmul(a3, 11))
+        s[c + 3] = (_aes_gmul(a0, 11) ^ _aes_gmul(a1, 13) ^ _aes_gmul(a2, 9) ^ _aes_gmul(a3, 14))
+
+
+def _aes_add_round_key(s, w, rnd):
+    base = rnd * 4
+    for c in range(4):
+        for r in range(4):
+            s[r + c * 4] ^= w[base + c][r]
+
+
+def _aes_encrypt_block(blk, w):
+    s = list(blk)
+    _aes_add_round_key(s, w, 0)
+    for rnd in range(1, 14):
+        _aes_sub_bytes(s)
+        _aes_shift_rows(s)
+        _aes_mix_columns(s)
+        _aes_add_round_key(s, w, rnd)
+    _aes_sub_bytes(s)
+    _aes_shift_rows(s)
+    _aes_add_round_key(s, w, 14)
+    return bytes(s)
+
+
+def _aes_decrypt_block(blk, w):
+    s = list(blk)
+    _aes_add_round_key(s, w, 14)
+    for rnd in range(13, 0, -1):
+        _aes_inv_shift_rows(s)
+        _aes_inv_sub_bytes(s)
+        _aes_add_round_key(s, w, rnd)
+        _aes_inv_mix_columns(s)
+    _aes_inv_shift_rows(s)
+    _aes_inv_sub_bytes(s)
+    _aes_add_round_key(s, w, 0)
+    return bytes(s)
+
+
+def aes256_ecb_encrypt(data, key):
+    """标准 AES-256-ECB 加密（data 长度须为 16 的倍数）"""
+    w = _aes_key_expand(key)
+    out = bytearray()
+    for i in range(0, len(data), 16):
+        out += _aes_encrypt_block(data[i:i + 16], w)
+    return bytes(out)
+
+
+def aes256_ecb_decrypt(data, key):
+    """标准 AES-256-ECB 解密"""
+    w = _aes_key_expand(key)
+    out = bytearray()
+    for i in range(0, len(data), 16):
+        out += _aes_decrypt_block(data[i:i + 16], w)
+    return bytes(out)
+
+
+def aes256_faes_decrypt(data, key):
+    """UE4 FAES 变体：ECB 解密后每块 XOR 块计数器（大端 8 字节+8 零）。
+    index 解密用标准 ECB；数据块解密用本变体。防御式都提供。"""
+    base = aes256_ecb_decrypt(data, key)
+    out = bytearray(base)
+    for i in range(0, len(data), 16):
+        bidx = i // 16
+        ctr = bidx.to_bytes(8, "big") + b"\x00" * 8
+        for j in range(16):
+            out[i + j] ^= ctr[j]
+    return bytes(out)
+def _pak_read_fstring(data, pos):
+    """UE FString: int32 长度（>0 UTF-16LE 字符数；<0 ANSI 字节数；0 空串）"""
+    if pos + 4 > len(data):
+        return None, pos
+    (ln,) = struct.unpack_from("<i", data, pos)
+    pos += 4
+    if ln > 0:
+        if pos + ln * 2 > len(data):
+            return None, pos
+        s = data[pos:pos + ln * 2].decode("utf-16-le", "replace").rstrip("\x00")
+        pos += ln * 2
+        return s, pos
+    if ln < 0:
+        nb = -ln
+        if pos + nb > len(data):
+            return None, pos
+        s = data[pos:pos + nb].decode("latin1", "replace").rstrip("\x00")
+        pos += nb
+        return s, pos
+    return "", pos
+
+
+def _pak_find_index(data, version):
+    """定位 index 偏移/大小；返回 (off, size) 或 None"""
+    if version < 3:
+        if len(data) >= 44:
+            (off, size) = struct.unpack_from("<qq", data, 8)
+            if off >= 0 and size > 0 and off + size <= len(data):
+                return (off, size)
+        return None
+    # Version>=3：footer 在文件尾（最后 4B magic，前 4B footer size）
+    if len(data) < 56:
+        return None
+    if data[-4:] != b"Zong":
+        # 尝试在尾部 1KB 内搜 magic（部分工具追加数据的情况）
+        tail = data[-1024:]
+        p = tail.rfind(b"Zong")
+        if p < 0 or len(data) - (1024 - p) < 16:
+            return None
+        base = len(data) - 1024 + p
+        fsize = struct.unpack_from("<I", data, base - 4)[0] if base >= 4 else 0
+        fstart = len(data) - fsize if 0 < fsize < len(data) else base - 4
+    else:
+        fsize = struct.unpack_from("<I", data, -8)[0]
+        fstart = len(data) - fsize if 0 < fsize < len(data) else len(data) - 52
+    # footer 内布局候选：IndexOffset@0/IndexSize@8（标准）
+    candidates = []
+    if 0 <= fstart < len(data) - 16:
+        candidates.append((fstart, fstart + 8))
+    # 兜底：在尾部 128B 内暴力搜合法 qq 对
+    for p in range(max(0, len(data) - 128), len(data) - 16, 2):
+        (off, size) = struct.unpack_from("<qq", data, p)
+        if off >= 0 and size > 0 and off + size <= len(data):
+            candidates.append((p, p + 8))
+    for (pa, pb) in candidates:
+        (off, size) = struct.unpack_from("<qq", data, pa)
+        if off >= 0 and size > 0 and off + size <= len(data):
+            return (off, size)
+    return None
+
+
+def _pak_parse_index(idx):
+    """解析 UE4 pak index 目录树 → 文件名列表"""
+    if len(idx) < 12:
+        return []
+    (iv, n_entries) = struct.unpack_from("<ii", idx, 0)
+    if n_entries <= 0 or n_entries > (1 << 24):
+        return []
+    pos = 8
+    if pos + n_entries * 4 > len(idx):
+        return []
+    pos += n_entries * 4  # 跳过 hash 表
+    files = []
+    MAX_FILES = 60
+    guard = 0
+    while pos < len(idx) and len(files) < MAX_FILES and guard < 20000:
+        guard += 1
+        (dname, pos) = _pak_read_fstring(idx, pos)
+        if dname is None or pos + 4 > len(idx):
+            break
+        (fc,) = struct.unpack_from("<i", idx, pos)
+        pos += 4
+        if fc < 0 or fc > 5000:
+            break
+        for _k in range(fc):
+            if len(files) >= MAX_FILES:
+                break
+            (fname, pos) = _pak_read_fstring(idx, pos)
+            if fname is None or pos + 16 > len(idx):
+                return files
+            (fo, fs) = struct.unpack_from("<qq", idx, pos)
+            pos += 16
+            if pos + 20 + 1 + 4 > len(idx):
+                return files
+            pos += 20  # sha1
+            cm = idx[pos]
+            pos += 1
+            (fl,) = struct.unpack_from("<I", idx, pos)
+            pos += 4
+            name = (dname.rstrip("/") + "/" + fname) if dname else fname
+            flags_txt = []
+            if fl & 0x01:
+                flags_txt.append("压缩")
+            if fl & 0x02:
+                flags_txt.append("加密")
+            if fl & 0x04:
+                flags_txt.append("带签名")
+            if cm != 0:
+                flags_txt.append("压缩方法%d" % cm)
+            size_txt = ("%.1f MB" % (fs / 1048576.0)) if fs > 1048576 else ("%d B" % fs)
+            files.append("%s  [%s  off=%d%s]" % (name, size_txt, fo,
+                                                  ("  " + "/".join(flags_txt)) if flags_txt else ""))
+    return files
+
+
+def parse_ue_pak(data, key_hex=None):
+    """Unreal Engine Pak 资源包：Zong 魔数 + footer/index → 文件清单。
+    key_hex: 可选 AES-256 密钥（64 hex，可带 0x 前缀），用于解密加密 index。"""
+    if len(data) < 12 or data[:4] != b"Zong":
+        return None
+    version = struct.unpack_from("<i", data, 4)[0]
+    out = ["Unreal Engine Pak 资源包 (UE4/UE5)"]
+    out.append("魔数: Zong  版本: %d" % version)
+    out.append("文件大小: %d B (%.2f MB)" % (len(data), len(data) / 1048576.0))
+    idx = _pak_find_index(data, version)
+    if idx is None:
+        out.append("Index 目录：未能定位（可能是 Io Store 容器 / 损坏）")
+        return "\n".join(out)
+    (off, size) = idx
+    out.append("Index 目录偏移: %d  大小: %d B" % (off, size))
+    if off + size > len(data):
+        out.append("Index 越界，无法读取")
+        return "\n".join(out)
+    blob = data[off:off + size]
+    files = _pak_parse_index(blob)
+    if files:
+        out.append("文件条目（最多 60 条）：")
+        out.extend(files)
+        return "\n".join(out)
+    # 明文解析失败 → 尝试 AES 解密（index 加密时）
+    if key_hex:
+        key_txt = key_hex.strip()
+        if key_txt.lower().startswith("0x"):
+            key_txt = key_txt[2:]
+        try:
+            key = bytes.fromhex(key_txt)
+        except Exception:
+            out.append("密钥格式无效（需要 64 位 hex）")
+            return "\n".join(out)
+        if len(key) != 32:
+            out.append("密钥长度错误（需要 32 字节 = 64 hex，实际 %d 字节）" % len(key))
+            return "\n".join(out)
+        if len(blob) % 16 != 0:
+            out.append("Index 大小 %d 不是 16 的倍数，无法 AES 解密" % len(blob))
+            return "\n".join(out)
+        # 试两种：标准 ECB（UE index 用）→ FAES 计数器变体
+        plain = None
+        for label, dec in (("AES-256-ECB", aes256_ecb_decrypt),
+                           ("AES-256-FAES(计数器)", aes256_faes_decrypt)):
+            try:
+                cand = dec(blob, key)
+            except Exception:
+                continue
+            if len(cand) >= 12:
+                try:
+                    (iv2, ne2) = struct.unpack_from("<ii", cand, 0)
+                except Exception:
+                    continue
+                if 0 < ne2 <= (1 << 24):
+                    plain = cand
+                    out.append("Index 已加密 → 用密钥解密成功（%s）" % label)
+                    break
+        if plain is None:
+            out.append("Index 解密失败：密钥可能不匹配，或 index 非 16 字节对齐")
+            return "\n".join(out)
+        files = _pak_parse_index(plain)
+        if files:
+            out.append("文件条目（最多 60 条，已解密）：")
+            out.extend(files)
+        else:
+            out.append("Index 解密成功但未解析出文件条目（可能是其他容器格式）")
+    else:
+        out.append("Index 内未解析出文件条目：可能已加密。"
+                   "输入 AES 密钥（64 位 hex）后重试，或点击「自动获取鸣潮密钥」")
+    return "\n".join(out)
+
+
 def parse_img(data):
     """磁盘镜像（.img 软盘/分区）：FAT 引导扇区识别（OEM/卷标/几何参数）"""
     if len(data) < 64:
@@ -536,7 +895,7 @@ def parse_prt(data):
     return parse_probe(data, "CAD 零件（prt）")
 
 
-def parse_misc(data, filename):
+def parse_misc(data, filename, key_hex=None):
     fn = (filename or "").lower()
     ext = fn.rsplit(".", 1)[-1] if "." in fn else ""
     if ext == "lnk":
@@ -592,6 +951,9 @@ def parse_misc(data, filename):
         r = parse_pak(data)
         if r:
             return r
+        r = parse_ue_pak(data, key_hex)
+        if r:
+            return r
     if ext == "img":
         r = parse_img(data)
         if r:
@@ -621,6 +983,7 @@ def parse_misc(data, filename):
     for parser in (parse_lnk, parse_torrent, parse_cue, parse_wotreplay, parse_cdg, parse_eps, parse_plist,
                    parse_ai, parse_emf, parse_wmf, parse_unity3d, parse_bsa,
                    parse_art, parse_vdex, parse_oat, parse_gp5, parse_z, parse_pak,
+                   parse_ue_pak,
                    parse_img, parse_dat, parse_nwc, parse_rpm, parse_prt):
         try:
             r = parser(data)

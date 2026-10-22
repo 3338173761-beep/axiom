@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Axiom · 多格式自动反编译器</title>
-<link rel="stylesheet" href="css/style-7.css?v=42">
+<link rel="stylesheet" href="css/style-7.css?v=43">
 </head>
 <body>
 
@@ -108,7 +108,7 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-kicker" aria-hidden="true">
-      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.8.25 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
+      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.8.35 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
     </div>
     <h1 class="hero-title">把编译过的脚本，<em>还原成源码</em></h1>
     <p class="hero-sub">rpyc · rpa · pyc · apk · dex · jar —— 拖进来，引擎在浏览器内本地运行，文件不上传</p>
@@ -165,6 +165,19 @@
         <div class="set-row">
           <label class="set-label" for="outputName">输出文件名</label>
           <input type="text" id="outputName" class="text-input" value="axiom-output">
+        </div>
+
+        <!-- UE Pak AES 密钥（仅 .pak 文件时显示） -->
+        <div id="pakKeyRow" class="set-row pak-key-row hidden">
+          <div class="set-label-wrap">
+            <label class="set-label" for="pakKeyInput">UE Pak AES 密钥</label>
+            <span class="set-tip">鸣潮等加密 pak · 64 位 hex · 可自动获取</span>
+          </div>
+          <div class="pak-key-box">
+            <input type="text" id="pakKeyInput" class="text-input" placeholder="0x + 64 位 hex 或留空自动获取">
+            <button id="btnPakAutoKey" class="btn btn-ghost" title="从 wuwa-keys 仓库自动拉取鸣潮 mainKey">自动获取</button>
+            <button id="btnPakSaveKey" class="btn btn-ghost">应用</button>
+          </div>
         </div>
 
         <div class="set-row">
@@ -263,11 +276,11 @@
 
 <script src="js/format-data.js?v=26"></script>
 <script src="js/format.js?v=26"></script>
-<script src="js/engines.js?v=26"></script>
+<script src="js/engines.js?v=28"></script>
 <script src="js/translate.js?v=26"></script>
-<script src="js/theme-7.js?v=45"></script>
-<script src="js/music.js?v=33"></script>
+<script src="js/theme-7.js?v=47"></script>
+<script src="js/music.js?v=37"></script>
 <script src="js/audio-toggle.js?v=29"></script>
-<script src="js/app.js?v=27"></script>
+<script src="js/app.js?v=30"></script>
 </body>
 </html>

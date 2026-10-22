@@ -167,9 +167,10 @@ def _uue(data, name):
 
 
 # ---------- ar（Unix 归档） ----------
-def _ar(data, name):
+def _ar_entries(data):
+    """ar 归档解析，返回 [(relpath, data_bytes)]；头无效返回 None"""
     if not data.startswith(b"!<arch>\n"):
-        return "ar 头无效"
+        return None
     pos = 8
     files = []
     while pos + 60 <= len(data):
@@ -187,6 +188,13 @@ def _ar(data, name):
         pos += 60 + size
         if pos < len(data) and data[pos] in (b"\n"[0], b"\x0a"[0]):
             pos += 1
+    return files
+
+
+def _ar(data, name):
+    files = _ar_entries(data)
+    if files is None:
+        return "ar 头无效"
     return _list_result(files, name)
 
 
@@ -218,7 +226,9 @@ def _cpio(data, name):
 
 # ---------- deb（ar + 数据解压） ----------
 def _deb(data, name):
-    files = _ar(data, name)
+    files = _ar_entries(data)
+    if files is None:
+        return "deb：ar 头无效"
     # deb 是 ar 归档，内含 control.tar.* + data.tar.* —— 递归解包 data 成员
     out = []
     for rel, d in files:
@@ -240,7 +250,7 @@ def _deb(data, name):
 def decompile_archive(data, name):
     lower = name.lower()
     # tar 系列（tarfile 自动识别 gz/bz2/xz/zst 压缩）
-    if lower.endswith((".tar", ".tgz", ".tbz2", ".txz", ".tzst", ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst")):
+    if lower.endswith((".tar", ".tgz", ".tbz2", ".txz", ".tzst", ".tar.gz", ".tar.bz2", ".tar.xz", ".tar.zst", ".ustar")):
         return _tar(data, name)
     # zip 魔数
     if data[:4] == b"PK\x03\x04" or data[:2] == b"PK":

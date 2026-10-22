@@ -14,6 +14,7 @@
     outputName: $("outputName"), translateToggle: $("translateToggle"),
     translateOptions: $("translateOptions"), langFrom: $("langFrom"), langTo: $("langTo"),
     btnTranslate: $("btnTranslate"), keyRow: $("keyRow"), apiKey: $("apiKey"), btnSaveKey: $("btnSaveKey"),
+    pakKeyRow: $("pakKeyRow"), pakKeyInput: $("pakKeyInput"), btnPakAutoKey: $("btnPakAutoKey"), btnPakSaveKey: $("btnPakSaveKey"),
     progressWrap: $("progressWrap"), barFill: $("barFill"), progressLog: $("progressLog"),
     cardResult: $("cardResult"), btnDownload: $("btnDownload"), btnCopy: $("btnCopy"), btnReset: $("btnReset"),
     tabTrans: $("tabTrans"), srcView: $("srcView"), transView: $("transView"),
@@ -65,6 +66,64 @@
   let decompileMs = 0;
   let decompiling = false;       // 反编译进行中
   let pendingTranslate = false;  // 反编译进行中点了翻译 → 排队，结果出来后自动翻译
+  let pakKey = "";               // UE Pak AES 密钥（64 hex，可带 0x 前缀；用于加密 index 解密）
+
+  // ---------- UE Pak AES 密钥 ----------
+  // 鸣潮等 UE4/5 加密 pak：index 可能 AES-256 加密。
+  // 密钥可自动从 wuwa-keys 公开仓库拉取（mainKey），也可手动粘贴。
+  const WUWA_KEYS_URL = "https://yarik0chka.github.io/wuwa-keys/keys.json";
+  function normalizeKey(v) {
+    let s = (v || "").trim();
+    if (/^0x/i.test(s)) s = s.slice(2);
+    return s;
+  }
+  function showPakKeyRow(show) {
+    if (!els.pakKeyRow) return;
+    els.pakKeyRow.classList.toggle("hidden", !show);
+  }
+  // 换文件时清空密钥：旧 pak 的密钥绝不能残留到新 pak 上（每次上传都调用）
+  function clearPakKey() {
+    pakKey = "";
+    if (els.pakKeyInput) els.pakKeyInput.value = "";
+    if (els.btnPakSaveKey) els.btnPakSaveKey.textContent = "应用";
+  }
+  els.btnPakAutoKey && els.btnPakAutoKey.addEventListener("click", async () => {
+    const btn = els.btnPakAutoKey;
+    const old = btn.textContent;
+    const hadKey = !!pakKey;
+    btn.textContent = "获取中…";
+    btn.disabled = true;
+    try {
+      const res = await fetch(WUWA_KEYS_URL);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      if (!data || !data.mainKey) throw new Error("keys.json 里没有 mainKey");
+      els.pakKeyInput.value = normalizeKey(data.mainKey);
+      pakKey = normalizeKey(data.mainKey);
+      log(hadKey
+        ? "已重新拉取鸣潮 mainKey 并覆盖旧密钥（" + pakKey.length + " hex）"
+        : "已自动获取鸣潮 mainKey（" + pakKey.length + " hex 字符）");
+      Term.line("> wuwa-keys: mainKey " + (hadKey ? "refreshed" : "fetched") + " (" + pakKey.length + " hex)", "t-ok");
+      if (els.btnPakSaveKey) els.btnPakSaveKey.textContent = "已应用 ✓";
+    } catch (e) {
+      log("自动获取失败：" + e.message + "（请手动粘贴密钥）");
+      Term.line("> wuwa-keys fetch FAILED: " + e.message, "t-err");
+    } finally {
+      btn.textContent = old;
+      btn.disabled = false;
+    }
+  });
+  els.btnPakSaveKey && els.btnPakSaveKey.addEventListener("click", () => {
+    const k = normalizeKey(els.pakKeyInput.value);
+    if (k && !/^[0-9a-fA-F]{64}$/.test(k)) {
+      alert("密钥格式不对：需要 64 位 hex（去掉 0x 前缀后应正好 64 个字符）");
+      return;
+    }
+    pakKey = k;
+    els.btnPakSaveKey.textContent = pakKey ? "已应用 ✓" : "应用";
+    setTimeout(() => { if (els.btnPakSaveKey) els.btnPakSaveKey.textContent = "应用"; }, 1500);
+    log(pakKey ? "已应用 AES 密钥（" + pakKey.length + " hex）" : "已清除 AES 密钥");
+  });
 
   // 翻译按钮状态：点击反编译后（进行中或已完成）才亮；未开始反编译前黑
   function updateTranslateBtn() {
@@ -169,6 +228,7 @@
     const file = files[0];
     if (!file) return;
     currentFile = file; currentSrc = currentTrans = null; decompileMs = 0;
+    clearPakKey(); // 换文件必清旧密钥：防止把上一个 pak 的密钥用在当前文件上
 
     els.fileList.innerHTML = "";
     const item = document.createElement("div");
@@ -215,6 +275,9 @@
     setBar(0);
     els.btnDecompile.disabled = false;
     els.btnTranslate.disabled = true;
+
+    // UE Pak 密钥行：仅 .pak 文件显示（加密 index 需要 AES 密钥）
+    showPakKeyRow(currentInfo.ext === "pak");
 
     const base = file.name.replace(/\.[^.]+$/, "");
     els.outputName.value = currentInfo.id === "rpyc" ? base + ".rpy" : currentInfo.id === "pyc" ? base + ".py" : base + ".decoded.txt";
@@ -291,7 +354,7 @@
         "> engine bound: " + engine.label + " :: " + currentInfo.id,
         "> feeding input buffer → engine …",
       ], "t-ok", 12);
-      currentSrc = await engine.decompile(currentFile, log);
+      currentSrc = await engine.decompile(currentFile, log, pakKey);
       decompileMs = Math.round(performance.now() - t0);
       Term.flood([
         "> done in " + decompileMs + " ms",
@@ -346,14 +409,42 @@
   }
 
   // ---------- 复制 / 下载 ----------
+  // 复制兼容层：安全上下文(https/localhost)用 Clipboard API；
+  // 局域网 http（192.168.x.x 非安全上下文，navigator.clipboard 为
+  // undefined）回退到 textarea + execCommand("copy")。
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        ok ? resolve() : reject(new Error("execCommand copy failed"));
+      } catch (e) { reject(e); }
+    });
+  }
   els.btnCopy.addEventListener("click", () => {
     const useTrans = !els.transView.classList.contains("hidden") && currentTrans;
     const content = useTrans ? currentTrans : currentSrc;
     if (!content) return;
-    navigator.clipboard.writeText(content).then(() => {
+    copyToClipboard(content).then(() => {
       els.btnCopy.textContent = "已复制 ✓";
       setTimeout(() => { els.btnCopy.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10" fill="none" stroke="currentColor" stroke-width="2"/></svg>复制`; }, 1500);
-    }).catch(() => alert("复制失败"));
+    }).catch((err) => {
+      console.error("copy failed:", err);
+      alert("复制失败：浏览器拒绝了剪贴板访问，可手动全选后 Ctrl+C");
+    });
   });
 
   els.btnDownload.addEventListener("click", () => {
@@ -382,6 +473,8 @@
     els.translateToggle.checked = false;
     els.translateOptions.classList.add("hidden");
     els.keyRow.classList.add("hidden");
+    showPakKeyRow(false);
+    clearPakKey();
     setBar(0);
     Term.reset();
     window.scrollTo({ top: 0, behavior: "smooth" });
