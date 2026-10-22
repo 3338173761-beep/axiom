@@ -1,132 +1,15 @@
-/* Axiom Web — 格式识别（扩展名 + 文件头魔数 + 627 全格式表） */
+/* Axiom Web — 格式识别（扩展名 + 文件头魔数 + 格式表（v2.8.37 起只含上线格式）） */
 "use strict";
 
 const AxiomFormats = (function () {
 
-  // ---- 627 全格式表（由调研自动生成，format-data.js 注入） ----
+  // ---- 格式表（调研产物生成；v2.8.37 裁到上线范围，被裁条目在仓库外 format_archive/） ----
   const EXT_TABLE = (typeof window !== "undefined" && window.AXIOM_FORMAT_TABLE) || {};
   const AMBIGUOUS = (typeof window !== "undefined" && window.AXIOM_AMBIGUOUS) || [];
 
   // 已有完整引擎的格式（直接路由到现有引擎）
-  const KNOWN_ENGINE = { rpyc: "rpycdec", rpymc: "rpycdec", rpa: "rpa", pyc: "pyc", pyo: "pyc",
-    dex: "dex", apk: "apk", aab: "apk", xapk: "apk", jar: "java", class: "java",
-    // exe/dll 走 dotnet 引擎（peDecode 自动分流 .NET CLR / 原生 PE）；无 PE 头的原生二进制直接指 bin
-    exe: "dotnet", dll: "dotnet",
-    so: "bin", elf: "bin", o: "bin", bin: "bin", wasm: "bin", sys: "bin", com: "bin",
-    wbfs: "rom", xci: "rom", mds: "rom", onepkg: "doc", onetoc2: "doc", dps: "doc", dpt: "doc",
-    m4b: "video", "3ga": "video",
-    // 新引擎：PDF / SQLite / ISO / 媒体-字体-容器元数据（msi 为 OLE 复合文档，不再误映射 dotnet）
-    pdf: "pdf", sqlite: "sqlite", db: "sqlite", dbf: "sqlite", sqlite3: "sqlite", sqlitedb: "sqlite", iso: "iso",
-    wav: "media", png: "media", jpg: "media", jpeg: "media", gif: "media",
-    psd: "media", ttf: "media", otf: "media", mobi: "media", msi: "media",
-    // 媒体引擎扩充：音频容器 / 游戏音频 / 视频容器
-    jfif: "media", wave: "media", sf2: "media", dls: "media", fxb: "media", fxp: "media",
-    voc: "media", w64: "media", au: "media", mkv: "media", flv: "media", swf: "media",
-    // 加密歌词引擎（时间轴还原 → 可翻译）
-    krc: "lyric", qrc: "lyric", yrc: "lyric", trc: "lyric",
-    // 邮件/日历/通讯录引擎（可翻译）
-    eml: "mail", mbox: "mail", emlx: "mail", ics: "mail", vcf: "mail",
-    // 游戏资源包 / 设计源文件引擎
-    vpk: "game", wad: "game", ktx: "game", sketch: "game", kra: "game",
-    // 3D 模型引擎
-    obj: "model", stl: "model", ply: "model", gltf: "model", glb: "model", dae: "model", off: "model",
-    // CAD 文本实体引擎
-    dxf: "cad", iges: "cad", igs: "cad", sat: "cad", step: "cad", stp: "cad",
-    // 音乐元数据引擎（追踪器/芯片音乐/MIDI）
-    it: "audio", mod: "audio", s3m: "audio", xm: "audio", vgm: "audio", vgz: "audio", psf: "audio",
-    kar: "audio", rmi: "audio", xmi: "audio",
-    // 字体容器引擎
-    woff: "font", ttc: "font", otc: "font", pfm: "font", eot: "font",
-    // PE/ELF/Mach-O 族（peDecode 自动分流 CLR/原生；ELF/Mach-O 走 bin）
-    pyd: "dotnet", drv: "dotnet", efi: "dotnet", ocx: "dotnet", scr: "dotnet", xll: "dotnet",
-    ko: "bin", dylib: "bin", bundle: "bin",
-    // zip/tar 容器复用归档引擎
-    pk3: "archive", pk4: "archive", apks: "archive", appx: "archive", msix: "archive",
-    cbt: "archive", cbz: "archive", ibooks: "archive", unitypackage: "archive",
-    // JSON 直读（可翻译）→ text 引擎
-    gdoc: "text", gsheet: "text", gslides: "text", gj: "text", msq: "text", tlp: "text",
-    vvproj: "text", y77: "text", ais: "text", aisp: "text", sln: "text",
-    // 乐谱 / 版式 / 数据 → 文档引擎
-    mscz: "doc", mscx: "doc", musx: "doc", musicxml: "doc", xps: "doc", oxps: "doc", json5: "doc",
-    // 文档引擎扩展（XML 家族/工程/表格交换）
-    abw: "doc", zabw: "doc", fb2: "doc", uot: "doc", uos: "doc", x3d: "doc",
-    sxw: "doc", stw: "doc", sxc: "doc", stc: "doc", uop: "doc", sxi: "doc", sti: "doc",
-    potm: "doc", ppsm: "doc", ppsx: "doc", thmx: "doc", xlam: "doc", csproj: "doc", vcxproj: "doc",
-    mhtml: "doc", mht: "doc", dif: "doc", slk: "doc",
-    xls: "doc", xla: "doc", xlt: "doc", xlw: "doc", et: "doc", ett: "doc",
-    xlsb: "doc", wk1: "doc", wk3: "doc", wks: "doc", wb2: "doc",
-    numbers: "doc", keynote: "doc",
-    // DAW 工程引擎
-    als: "daw", mmpz: "daw", aup3: "daw",
-    // 电子书容器引擎
-    pdb: "ebook", prc: "ebook", pml: "ebook",
-    // 杂项容器引擎
-    lnk: "misc", torrent: "misc", cue: "misc", wotreplay: "misc", cdg: "misc", eps: "misc", plist: "misc", idx: "misc",
-    ai: "misc", emf: "misc", wmf: "misc", unity3d: "misc", bsa: "misc",
-    art: "misc", vdex: "misc", oat: "misc",
-    uasset: "bin", umap: "bin", ucas: "bin", utoc: "bin", upk: "bin", asset: "bin",
-    webm: "media", wmv: "audio", "3gp": "video", cr3: "video", raf: "image",
-    // 歌声合成工程引擎
-    vspx: "vocal", xvsq: "vocal", nep: "vocal", vfp: "vocal", vog: "vocal", kfn: "vocal",
-    tlp: "vocal", tlpx: "vocal", tssln: "vocal",
-    ais: "vocal", aisp: "vocal", gj: "vocal", msq: "vocal", sk: "vocal",
-    vvproj: "vocal", y77: "vocal", mtp: "vocal", ppsf: "vocal", svip3: "vocal", vcp: "vocal", vsp: "vocal",
-    // 归档补充（zip/tar 容器）
-    ipa: "archive", ustar: "archive",
-    // 图像头（bmp/ico/cur/dds/tga/pcx/hdr 走 media）
-    bmp: "media", ico: "media", cur: "media", dds: "media", tga: "media", pcx: "media", hdr: "media",
-    // 游戏主机 ROM
-    nes: "rom", gb: "rom", gbc: "rom", gba: "rom", nds: "rom", n64: "rom", z64: "rom", v64: "rom",
-    sfc: "rom", smc: "rom", fds: "rom", cia: "rom",
-    // 音频流（mp3/ogg/flac/wma/aac 走 audio）
-    mp3: "audio", ogg: "audio", flac: "audio", wma: "audio", asf: "audio", aac: "audio",
-    // 字体补充（fnt/fon/pfb/woff2 走 font）
-    fnt: "font", fon: "font", pfb: "font", woff2: "font",
-    // TIFF/相机 RAW
-    dng: "image", cr2: "image", crw: "image", nef: "image", arw: "image", orf: "image",
-    pef: "image", rw2: "image", srw: "image", tif: "image", tiff: "image",
-    // 视频容器
-    avi: "video", mp4: "video", mov: "video", m4v: "video", f4v: "video",
-    mpeg: "video", mpg: "video", vob: "video", m2ts: "video", mts: "video",
-    // 音频补充（aiff/wavpack/ape/m4a 走 audio）
-    aiff: "audio", aif: "audio", wv: "audio", wavpack: "audio", ape: "audio", m4a: "audio",
-    gbs: "audio", gym: "audio", sid: "audio", spc: "audio", ac3: "audio", amr: "audio",
-    dts: "audio", tta: "audio", tak: "audio", mpc: "audio", vqf: "audio", snd: "audio",
-    ogm: "audio", ogv: "audio", mogg: "audio", opus: "audio", mka: "media",
-    oga: "audio", spx: "audio",
-    psb: "media", xcf: "media", msg: "doc",
-    webp: "media", avif: "media", icns: "media",
-    pages: "doc", wps: "doc", wpt: "doc", wpd: "doc", wri: "doc",
-    vxf: "vocal",
-    ddb: "vocal", ddi: "vocal", tsmsln: "vocal", tssprj: "vocal",
-    fbx: "model", lwo: "model",
-    img: "misc", kaj: "lyric", nsf: "audio", sap: "audio",
-    band: "daw", dat: "misc", nwc: "misc", rpm: "misc",
-    "3ds": "rom", "3gp": "video", "3g2": "video", "3gpp": "video",
-    pps: "doc", ppt: "doc", raw: "image",
-    eep: "misc", ldb: "misc", lrf: "misc", prt: "misc", sav: "misc", srm: "misc", state: "misc",
-    gp: "misc", gp3: "misc", gp4: "misc", gp5: "misc",
-    z: "misc", pak: "misc",
-    "7z": "sevenz", rar: "rar",
-    // 综合归档引擎（tar 家族 / 单文件压缩 / 编码 / 旧式归档）
-    tar: "archive", tgz: "archive", tbz2: "archive", txz: "archive", tzst: "archive",
-    zip: "archive", gz: "archive", bz2: "archive", xz: "archive", lzma: "archive",
-    zst: "archive", br: "archive", lz4: "archive", uue: "archive",
-    ar: "archive", cpio: "archive", deb: "archive",
-    // 文档引擎（zip 容器 → 文本提取 → 可翻译；doc/dot OLE → 启发式文本提取）
-    doc: "doc", dot: "doc",
-    docx: "doc", docm: "doc", dotx: "doc", dotm: "doc",
-    xlsx: "doc", xlsm: "doc", xltx: "doc", xltm: "doc",
-    pptx: "doc", pptm: "doc", potx: "doc",
-    odt: "doc", ott: "doc", odm: "doc", ods: "doc", ots: "doc", odp: "doc", otp: "doc",
-    epub: "doc", rtf: "doc",
-    // 歌声工程引擎（歌词块提取 → 可翻译）
-    ust: "voice", uproject: "voice", ufdata: "voice",
-    vsqx: "voice", vsq: "voice", vpr: "voice",
-    svp: "voice", s5p: "voice",
-    dv: "voice", dva: "voice", dvpp: "voice",
-    ccs: "voice", ccsi: "voice",
-    mid: "voice", midi: "voice", smf: "voice" };
+  const KNOWN_ENGINE = {
+    "rpyc":"rpycdec","rpymc":"rpycdec","rpa":"rpa","pyc":"pyc","pyo":"pyc","dex":"dex","apk":"apk","aab":"apk","xapk":"apk","jar":"java","class":"java","exe":"dotnet","dll":"dotnet","so":"bin","elf":"bin","bin":"bin","sys":"bin","com":"bin","wbfs":"rom","xci":"rom","mds":"rom","pdf":"pdf","sqlite":"sqlite","db":"sqlite","dbf":"sqlite","sqlite3":"sqlite","sqlitedb":"sqlite","iso":"iso","wav":"media","png":"media","jpg":"media","jpeg":"media","gif":"media","psd":"media","ttf":"media","otf":"media","mobi":"media","msi":"media","jfif":"media","wave":"media","sf2":"media","dls":"media","fxb":"media","fxp":"media","mkv":"media","flv":"media","swf":"media","krc":"lyric","qrc":"lyric","yrc":"lyric","trc":"lyric","vpk":"game","wad":"game","ktx":"game","sketch":"game","kra":"game","it":"audio","mod":"audio","s3m":"audio","xm":"audio","vgm":"audio","vgz":"audio","psf":"audio","kar":"audio","rmi":"audio","xmi":"audio","woff":"font","ttc":"font","otc":"font","pfm":"font","eot":"font","pyd":"dotnet","drv":"dotnet","efi":"dotnet","ocx":"dotnet","scr":"dotnet","xll":"dotnet","ko":"bin","dylib":"bin","bundle":"bin","pk3":"archive","pk4":"archive","apks":"archive","appx":"archive","msix":"archive","cbt":"archive","cbz":"archive","ibooks":"archive","unitypackage":"archive","vvproj":"vocal","y77":"vocal","mscz":"doc","mscx":"doc","musx":"doc","musicxml":"doc","fb2":"doc","xlam":"doc","mht":"doc","xls":"doc","lnk":"misc","torrent":"misc","cue":"misc","wotreplay":"misc","cdg":"misc","eps":"misc","plist":"misc","idx":"misc","ai":"misc","emf":"misc","wmf":"misc","unity3d":"misc","bsa":"misc","art":"misc","vdex":"misc","oat":"misc","upk":"bin","webm":"media","wmv":"audio","3gp":"video","vspx":"vocal","xvsq":"vocal","nep":"vocal","vfp":"vocal","vog":"vocal","kfn":"vocal","tssln":"vocal","ipa":"archive","ustar":"archive","bmp":"media","ico":"media","cur":"media","dds":"media","tga":"media","pcx":"media","hdr":"media","nes":"rom","gb":"rom","gbc":"rom","gba":"rom","nds":"rom","n64":"rom","z64":"rom","v64":"rom","sfc":"rom","smc":"rom","fds":"rom","cia":"rom","mp3":"audio","ogg":"audio","flac":"audio","wma":"audio","asf":"audio","aac":"audio","fnt":"font","fon":"font","pfb":"font","woff2":"font","tif":"image","tiff":"image","avi":"video","mp4":"video","mov":"video","m4v":"video","f4v":"video","mpeg":"video","mpg":"video","vob":"video","m2ts":"video","mts":"video","aiff":"audio","aif":"audio","wv":"audio","wavpack":"audio","ape":"audio","m4a":"audio","gbs":"audio","gym":"audio","sid":"audio","spc":"audio","ac3":"audio","amr":"audio","dts":"audio","tta":"audio","opus":"audio","mka":"media","psb":"media","xcf":"media","webp":"media","avif":"media","icns":"media","pages":"doc","wps":"doc","wpt":"doc","nsf":"audio","sap":"audio","dat":"misc","3ds":"rom","3g2":"video","3gpp":"video","pps":"doc","ppt":"doc","gp":"misc","gp3":"misc","gp4":"misc","gp5":"misc","pak":"misc","7z":"sevenz","rar":"rar","tar":"archive","tgz":"archive","tbz2":"archive","txz":"archive","tzst":"archive","zip":"archive","gz":"archive","bz2":"archive","xz":"archive","lzma":"archive","zst":"archive","br":"archive","lz4":"archive","uue":"archive","ar":"archive","cpio":"archive","deb":"archive","doc":"doc","dot":"doc","docx":"doc","docm":"doc","dotx":"doc","dotm":"doc","xlsx":"doc","xlsm":"doc","xltx":"doc","xltm":"doc","pptx":"doc","pptm":"doc","potx":"doc","odt":"doc","ott":"doc","odm":"doc","ods":"doc","ots":"doc","odp":"doc","otp":"doc","epub":"doc","rtf":"doc","ust":"voice","uproject":"voice","ufdata":"voice","vsqx":"voice","vsq":"voice","vpr":"voice","svp":"voice","s5p":"voice","ccs":"voice","ccsi":"voice","mid":"voice","midi":"voice","smf":"voice"};
 
   // 纯文本类格式 → text 引擎（浏览器直读 + AI 语境翻译）：
   // 调研分级"翻译"的 125 个 + 常见纯文本/脚本/工程文件
@@ -136,34 +19,7 @@ const AxiomFormats = (function () {
       if (EXT_TABLE[ext].lvl === "翻译") TEXT_EXTS.add(ext);
     }
     // 补充常见纯文本/标记/脚本/配置/歌词/字幕（部分在"解析/解包"级但可直接读文本）
-    const more = ["txt", "log", "md", "csv", "tsv", "json", "xml", "ini", "conf", "cfg", "yaml", "yml",
-      "srt", "sub", "lrc", "ass", "ssa", "vtt", "html", "htm", "xhtml", "css", "js", "mjs", "ts",
-      "py", "rpy", "java", "c", "h", "cpp", "hpp", "cs", "go", "rs", "php", "rb", "pl", "sh", "bat",
-      "cmd", "ps1", "lua", "sql", "toml", "properties", "env", "gitignore", "dockerfile", "makefile",
-      "tex", "latex", "texinfo", "man", "info", "pod", "rtf", "csv", "tsv", "nfo", "diz", "readme",
-      "html", "htm", "xhtml", "svg", "graphql", "gql", "proto", "kt", "kts", "swift", "m", "mm",
-      "scala", "clj", "ex", "exs", "erl", "hrl", "hs", "ml", "lisp", "cl", "scm", "r", "jl", "dart",
-      "vue", "jsx", "tsx", "svelte", "astro", "ipynb", "tpl", "twig", "j2", "jinja", "mustache", "hbs",
-      "njk", "ejs", "pug", "haml", "slim", "styl", "less", "scss", "sass", "coffee", "groovy", "gradle",
-      "vb", "vbs", "frm", "bas", "pas", "dpr", "lpr", "f90", "f95", "f03", "f", "for", "ada", "adb",
-      "ads", "m4", "cmake", "ninja", "mk", "am", "ac", "spec", "service", "timer", "desktop", "ini",
-      "reg", "inf", "pub", "asc", "sig", "pem", "key", "crt", "cer", "der", "pfx", "p12", "csr",
-      "xml", "dtd", "xsl", "xslt", "wsdl", "rdf", "ttl", "nt", "jsonld", "geojson", "kml", "gpx", "osm",
-      "ipynb", "nix", "flake", "lock", "po", "pot", "mo", "gmo", "diff", "patch", "rej", "orig", "bak",
-      "tmp", "swp", "swo", "old", "new", "orig", "rej", "diff", "patch", "changelog", "changes", "news",
-      "authors", "copying", "license", "todo", "notes", "readme", "contributing", "security",
-      // 歌声合成 / 音乐工程（文本型：可直接读取 + 翻译歌词）
-      "ust", "ustx", "vsq", "vsqx", "vpr", "s5p", "svp", "ccs", "ccst", "acep", "ace", "ds", "dspx",
-      "ufdata", "musicxml", "mxl", "ly", "lily", "lilypond", "abc", "tja", "f2n", "osu",
-      // 源码类（翻译级，纯文本直读）
-      "cjs", "cc", "cxx", "hh", "phtml", "pm", "asm", "s", "cob", "cbl", "pp", "lsp", "el",
-      "fs", "nim", "zig", "v", "cr", "odin",
-      // 脚本类
-      "pyw", "csx", "bash", "zsh", "psm1", "tcl", "awk", "sed",
-      // 纯文本 / 标记 / 元文本
-      "text", "markdown", "rst", "bib", "sty", "cls", "jsonl",
-      // 其他文本型格式（直达阅读）
-      "psd1", "url", "ccd", "xbm", "xpm", "pfa", "ksc", "minipsf", "ram", "sfz", "rmd", "puml", "nn"];
+    const more = ["txt","log","md","csv","tsv","json","xml","ini","conf","cfg","yaml","yml","srt","sub","lrc","ass","ssa","vtt","html","htm","xhtml","ts","py","rpy","toml","rtf","csv","tsv","html","htm","xhtml","svg","ini","key","xml","gpx","pot","ust","ustx","vsq","vsqx","vpr","s5p","svp","ccs","ccst","acep","ds","dspx","ufdata","musicxml","mxl","ly","abc","tja","osu","jsonl","ccd","xbm","xpm","pfa","ksc","minipsf","ram","sfz","nn"]
     for (const e of more) TEXT_EXTS.add(e);
   })();
 
@@ -271,12 +127,12 @@ const AxiomFormats = (function () {
       id: "generic", label: "已识别格式", ext: "? ", engine: "none",
       canTranslate: false,
       badge: { ch: "◇", color: "#f59e0b" },
-      desc: "格式已识别（来自 627 格式库）。浏览器端可显示元数据；完整解析视格式复杂度逐步接入。",
+      desc: "格式已识别（来自格式库）。浏览器端可显示元数据；完整解析视格式复杂度逐步接入。",
       icon: "◇",
     },
   };
 
-  // 由 627 表动态构建元数据
+  // 由格式表动态构建元数据
   function metaFromTable(ext) {
     const t = EXT_TABLE[ext];
     if (!t) return null;
@@ -344,10 +200,10 @@ const AxiomFormats = (function () {
     else if (MAGIC.rpyc.some(m => startsWith(head, m))) id = "rpyc";
     else if (ext === "pyc" || ext === "pyo") id = "pyc";
 
-    // 魔数命中后：若扩展名在 627 表内，补 tableHit 供元数据使用
+    // 魔数命中后：若扩展名在格式表内，补 tableHit 供元数据使用
     if (id && !tableHit && EXT_TABLE[ext]) tableHit = EXT_TABLE[ext];
 
-    // 627 全格式表（扩展名）
+    // 格式表（扩展名）
     if (!id && EXT_TABLE[ext]) {
       tableHit = EXT_TABLE[ext];
       if (KNOWN_ENGINE[ext]) id = ext;

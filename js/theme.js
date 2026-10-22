@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.36',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.37',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -213,7 +213,7 @@
       if (hi) {
         this.fmtHi = hi; this.fmtHiOrig = hi.textContent;
         var n = parseInt((hi.textContent || '').replace(/[^\d]/g, ''), 10);
-        hi.textContent = (n || 620) + ' FORMATS DETECTED';
+        hi.textContent = (n || (window.AxiomFormats ? AxiomFormats.tableCount() : 0)) + ' FORMATS DETECTED';
         hi.classList.add('oc-en');
       }
       var bl = document.querySelector('#swapBtn .swap-btn__label');
