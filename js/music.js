@@ -36,6 +36,13 @@
 
   var muted = false;
   var gridOriginSec = 0;
+  /* Wall-clock (performance.now ms) counterpart of gridOriginSec, captured in
+   * the SAME statement as the audio origin. The visual storm used to take its
+   * own performance.now() later, inside enterNeon(), so the whole transition
+   * ran a constant amount behind the audio grid -- the "对不上点" complaint.
+   * Both clocks now come from one sampling instant, so the gap is zero by
+   * construction instead of being estimated after the fact. */
+  var gridOriginWallMs = null;
   var inTransition = false;
   var form = 1;
 
@@ -358,9 +365,11 @@
     }
     buildTimeMap(40);
     gridOriginSec = ctx.currentTime + 0.05;
+    gridOriginWallMs = ((typeof performance !== 'undefined') ? performance.now() : Date.now())
+      + (gridOriginSec - ctx.currentTime) * 1000;
   }
   function setForm(f) { form = (f === 2) ? 2 : 1; }
-  function beginOverclock(t0) {
+  function beginOverclock(t0, wallMs) {
     if (!ensureEngine()) return;
     /* A rejected resume used to be swallowed by .catch(()=>{}), which is why
      * "sometimes there is no sound at all" was undiagnosable. Retry once and
@@ -371,7 +380,16 @@
       });
     }
     if (!startedOnce) { startedOnce = true; start(); }
+    /* wallMs must be captured by the caller in the same statement that reads
+     * ctx.currentTime, otherwise the visual grid inherits whatever time the
+     * caller spends between the two (DOM work, state flags) and every flash
+     * lands late against the kick. When it is not supplied we derive it from
+     * the two clocks read back-to-back here. */
     gridOriginSec = (t0 != null) ? t0 : ctx.currentTime + 0.05;
+    gridOriginWallMs = (wallMs != null && isFinite(wallMs))
+      ? wallMs
+      : (((typeof performance !== 'undefined') ? performance.now() : Date.now())
+         + (gridOriginSec - ctx.currentTime) * 1000);
     inTransition = true;
     buildTimeMap(16);
   }
@@ -382,6 +400,10 @@
     var t = ctx.currentTime;
     playRiserDown(t, 1.4);
     inTransition = false;
+    /* The transition grid is over: drop the paired origin so a later enterNeon()
+     * that is not preceded by beginOverclock() cannot anchor on a stale time and
+     * collapse the whole storm into zero-wait frames. */
+    gridOriginWallMs = null;
     setTimeout(function () { setForm(1); }, 900);
   }
 
@@ -446,6 +468,10 @@
     noiseWallStart: function (t) { if (ensureEngine()) noiseWallStart(t || (ctx ? ctx.currentTime : 0)); },
     noiseWallStop: function (t) { if (ensureEngine()) noiseWallStop(t || (ctx ? ctx.currentTime : 0)); },
     beginOverclock: beginOverclock,
+    /* Paired wall-clock origin of the current beat grid, or null when audio has
+     * never started (muted / no AudioContext). The visual side falls back to a
+     * plain performance.now() in that case so the storm still runs. */
+    gridWallMs: function () { return (ctx && gridOriginWallMs != null) ? gridOriginWallMs : null; },
     overclockSec: overclockSec,
     gridSecAt: gridSecAt,
     exitOverclock: exitOverclock,

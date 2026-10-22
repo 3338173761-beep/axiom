@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.38',            ms: 60 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.39',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -471,13 +471,21 @@
       this.overlay.style.visibility = 'visible';
       // Beat-grid tool: wait until an absolute grid beat (shared tempo map
       // with the music engine -> visual flashes land exactly on the grid).
-      // Clock: WALL clock anchored at chain start, driven by the engine's
-      // pure-math gridSecAt() (seconds from grid origin). This intentionally
-      // does NOT depend on ctx.state / ctx.currentTime: the visual storm must
-      // always run the full sequence at the intended tempo even when audio is
-      // muted or the AudioContext is suspended. Audio stays on the same beat
-      // table (gridOriginSec + secOfBeat), so flash & kick stay in sync.
-      var wall0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      // Anchor priority: the audio engine's PAIRED wall origin (captured in the
+      // same instant as ctx.currentTime, see beginOverclock) and only fall back
+      // to a fresh performance.now() when audio never started, so the storm
+      // still runs its full sequence at the intended tempo while muted. The old
+      // code always took its own now() here, which sat some milliseconds (plus
+      // DOM work) after the audio grid began, so every beat ran uniformly late
+      // against the kick.
+      var _mm = window.__axiomMusic;
+      var _now0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+      var _anchor = (_mm && typeof _mm.gridWallMs === 'function') ? _mm.gridWallMs() : null;
+      // Only trust a fresh anchor: a stale one (previous run / engine boot)
+      // would make every waitBeat resolve to 0 and dump the storm at once.
+      if (typeof _anchor === 'number' && isFinite(_anchor) &&
+          (_now0 - _anchor > 1500 || _anchor - _now0 > 3000)) _anchor = null;
+      var wall0 = (typeof _anchor === 'number' && isFinite(_anchor)) ? _anchor : _now0;
       function waitBeat(beat) {
         return new Promise(function (r) {
           var m = window.__axiomMusic;
@@ -686,11 +694,16 @@
         var m = window.__axiomMusic;
         if (a && a.ctx && m && m.sting) {
           if (a.ctx.state === 'suspended') a.ctx.resume().catch(function () {});
-          m.sting.enter(a.ctx.currentTime);
+          /* Take both clocks in ONE sampling instant and hand the wall reading
+           * to the engine, so the visual grid anchors on exactly the moment the
+           * audio grid starts instead of on a later performance.now(). */
+          var _t0 = a.ctx.currentTime;
+          var _w0 = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+          m.sting.enter(_t0);
           // Start the 5-segment morph grid at THIS instant: bars 0..11 of the
           // tempo map anchor all visual storm beats (waitBeat) AND the audio
           // transition (104 -> 136 -> 128) on one shared clock.
-          if (m.beginOverclock) m.beginOverclock(a.ctx.currentTime);
+          if (m.beginOverclock) m.beginOverclock(_t0, _w0);
         }
         enterNeon();
       }
