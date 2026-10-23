@@ -347,6 +347,37 @@
     }
   }
 
+
+  /* ---- CRITICAL protocol drum bed (fixes "storm middle is silent") ----
+   * v2.8.29 removed procedural music AND the storm drums with it, leaving only
+   * ~20 discrete hits across ~13s of storm: the middle went quiet. This is NOT
+   * music (no melody, no instruments) -- it is a rhythmic noise-tick bed locked
+   * to the SAME tempo map the visuals use, so every flash cell has a sound.
+   * Lookahead scheduler: 60ms timer, schedule 250ms ahead. */
+  var drumTimer = null, drumBeat = 0;
+  function stormDrumsStart() {
+    if (!ensureEngine() || muted || drumTimer) return;
+    buildTimeMap(16);
+    var step = 0.117;                       // 16th at ~128 BPM (form-2 grid)
+    drumBeat = Math.max(0, Math.ceil((ctx.currentTime - gridOriginSec) / step));
+    drumTimer = setInterval(function () {
+      if (muted || !ctx) return;
+      var horizon = ctx.currentTime + 0.25;
+      while (gridOriginSec + drumBeat * step < horizon) {
+        var t = gridOriginSec + drumBeat * step;
+        if (t >= ctx.currentTime - 0.02) {
+          var accent = drumBeat % 4 === 0;
+          noiseTick(t, accent ? 7200 : 5600, 4, accent ? 0.09 : 0.05, 0.005);
+          if (drumBeat % 16 === 0) noiseTick(t, 3400, 3, 0.08, 0.01);
+        }
+        drumBeat++;
+      }
+    }, 60);
+  }
+  function stormDrumsStop() {
+    if (drumTimer) { clearInterval(drumTimer); drumTimer = null; }
+  }
+
   /* ---------- API ---------- */
   function ensureEngine() {
     if (!H) H = window.__axiomAudio || null;
@@ -403,6 +434,7 @@
     var t = ctx.currentTime;
     playRiserDown(t, 1.4);
     inTransition = false;
+    stormDrumsStop();
     /* The transition grid is over: drop the paired origin so a later enterNeon()
      * that is not preceded by beginOverclock() cannot anchor on a stale time and
      * collapse the whole storm into zero-wait frames. */
@@ -464,8 +496,8 @@
       }
     },
     stormHit: function (kind, t) { if (ensureEngine()) stormHit(kind, t); },
-    stormDrumsStart: function () { /* music removed: no-op */ },
-    stormDrumsStop: function () { /* music removed: no-op */ },
+    stormDrumsStart: function () { if (ensureEngine()) stormDrumsStart(); },
+    stormDrumsStop: function () { stormDrumsStop(); },
     alarmBedStart: function (t) { if (ensureEngine()) sirenBedStart(t || (ctx ? ctx.currentTime : 0)); },
     alarmBedStop: function (t) { if (ensureEngine()) sirenBedStop(t || (ctx ? ctx.currentTime : 0)); },
     noiseWallStart: function (t) { if (ensureEngine()) noiseWallStart(t || (ctx ? ctx.currentTime : 0)); },

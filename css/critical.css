@@ -1,13 +1,28 @@
 /* ============================================================
-   CRITICAL PROTOCOL - form-2 skin v1 (v2.9.0)
+   CRITICAL PROTOCOL - form-2 skin v2 (v2.9.1)  [full rewrite]
    Fusion: CRITICAL (electric cyan / alarm red) x MELTDOWN (amber / hazard)
    Color law: cyan = data & structure | amber = warning & degraded | red = faults only
-   Scope: everything is gated by :root[data-theme="overclock"], so form-1
-          (the plain UI) never sees a single rule from this file.
-   Load order: after style-7.css, same specificity -> later wins.
+   Scope: gated by :root[data-theme="overclock"] -> form-1 never sees this file.
+   Motion: Energetic personality (product-design:motion-plan 2026-10-23)
+     signature ease   : cubic-bezier(0.16,1,0.3,1)   (ease-out-expo)
+     snap ease        : cubic-bezier(0.34,1.56,0.64,1) (15-30% overshoot)
+     durations        : 110 / 180 / 420 / 900 ms
+     three layers     : primary + secondary + ambient on every hero element
+     performance      : transform/opacity/clip-path only; no box-shadow animation
    ============================================================ */
 
-/* ---- 1. palette transplant: one variable block recolors all 88 consumers ---- */
+/* ---- 0. motion tokens ---- */
+:root[data-theme="overclock"]{
+  --crit-ease:   cubic-bezier(0.16,1,0.3,1);
+  --crit-back:   cubic-bezier(0.34,1.56,0.64,1);
+  --crit-in:     cubic-bezier(0.5,0,0.9,0.4);
+  --d-quick:     110ms;
+  --d-std:       180ms;
+  --d-slow:      420ms;
+  --d-reveal:    900ms;
+}
+
+/* ---- 1. palette transplant (recolors all 88 legacy consumers) ---- */
 :root[data-theme="overclock"]{
   --cyber-bg:          #050609;
   --cyber-surface:     #0B0E14;
@@ -33,7 +48,7 @@
   --hazard-stripes:    repeating-linear-gradient(-45deg,#FFB000 0 12px,#0B0E14 12px 24px);
 }
 
-/* ---- 2. body frame: cyan data rail on top, amber hazard rail on bottom ---- */
+/* ---- 2. body rails: cyan data top, amber hazard bottom (animated) ---- */
 :root[data-theme="overclock"] body::before{
   background: linear-gradient(90deg, #22D3EE, #7DD3FC 30%, #FFB000 65%, #B45309);
 }
@@ -43,12 +58,15 @@
   animation: crit-hazard-slide 2.4s linear infinite;
   opacity: .85;
 }
-@keyframes crit-hazard-slide{
-  from{ background-position: 0 0; }
-  to{   background-position: 48px 0; }
-}
+@keyframes crit-hazard-slide{ from{ background-position:0 0; } to{ background-position:48px 0; } }
 
-/* ---- 3. protocol banner: hazard edge + amber scan sweep ---- */
+/* ---- 3. ambient background: the grid drifts (seamless loop) ---- */
+:root[data-theme="overclock"] .bg-grid{
+  animation: crit-grid-drift 22s linear infinite;
+}
+@keyframes crit-grid-drift{ from{ background-position:0 0; } to{ background-position:0 -560px; } }
+
+/* ---- 4. protocol banner + topbar hazard tick ---- */
 :root[data-theme="overclock"] .oc-banner{
   border-top: 3px solid transparent;
   border-image: var(--hazard-stripes) 3;
@@ -65,8 +83,6 @@
   background-size: 36px 100%;
   animation: crit-hazard-slide 1.6s linear infinite;
 }
-
-/* ---- 4. topbar: HUD status bar, cyan rail + amber caution tick ---- */
 :root[data-theme="overclock"] .topbar{
   border-bottom: 1px solid rgba(34,211,238,.30);
   box-shadow: 0 1px 0 rgba(34,211,238,.12), 0 10px 30px rgba(0,0,0,.55);
@@ -84,15 +100,93 @@
 :root[data-theme="overclock"] .hud-reads b{ color: var(--cyber-primary); }
 :root[data-theme="overclock"] .hud-read.is-warn b{ color: var(--cyber-amber); }
 
-/* ---- 5. hero: bigger contrast, cyan core, amber kicker tick ---- */
-:root[data-theme="overclock"] .hero-kicker__tick{ background: var(--cyber-amber); }
+/* ---- 5. hero display takeover: BIG type + ghost echo + wipe reveal ---- */
+:root[data-theme="overclock"] .hero-title{
+  font-size: clamp(26px, 5.4vw, 56px);
+  letter-spacing: -0.5px;
+  line-height: 1.05;
+}
 :root[data-theme="overclock"] .hero-title em{
+  position: relative;
+  display: inline-block;
+  font-style: normal;
   color: var(--cyber-primary);
   text-shadow: 0 0 22px rgba(34,211,238,.55), 0 0 2px rgba(233,242,249,.9);
+  animation: crit-hero-in var(--d-reveal) var(--crit-ease) both,
+             crit-hero-pulse 4.5s ease-in-out 1s infinite;
 }
+/* ghost echo: same text, stroked, drifting behind (data-text set in index.html) */
+:root[data-theme="overclock"] .hero-title em[data-text]::after{
+  content: attr(data-text);
+  position: absolute; left: 3px; top: 3px;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(125,211,252,.4);
+  z-index: -1;
+  animation: crit-ghost-drift 6s ease-in-out infinite;
+  pointer-events: none;
+}
+:root[data-theme="overclock"] .hero-kicker__tick{ background: var(--cyber-amber); }
 :root[data-theme="overclock"] .hero-sub{ color: var(--cyber-text-dim); }
+@keyframes crit-hero-in{
+  0%{ opacity:0; transform: translateY(16px); clip-path: inset(0 0 100% 0); filter: blur(6px); }
+  100%{ opacity:1; transform: translateY(0); clip-path: inset(0 0 -10% 0); filter: blur(0); }
+}
+@keyframes crit-hero-pulse{
+  0%,100%{ text-shadow: 0 0 14px rgba(34,211,238,.35); }
+  50%{ text-shadow: 0 0 30px rgba(34,211,238,.7), 0 0 2px rgba(233,242,249,.9); }
+}
+@keyframes crit-ghost-drift{
+  0%,100%{ transform: translate(0,0); opacity:.22; }
+  50%{ transform: translate(-5px,3px); opacity:.38; }
+}
 
-/* ---- 6. dropzone: targeting reticle + slow radar sweep ---- */
+/* ---- 6. entrance cascade: every panel wipes in, staggered <=400ms ---- */
+:root[data-theme="overclock"] .hero,
+:root[data-theme="overclock"] .upload-card,
+:root[data-theme="overclock"] #cardInfo,
+:root[data-theme="overclock"] #cardActions,
+:root[data-theme="overclock"] #progressWrap,
+:root[data-theme="overclock"] .result-card,
+:root[data-theme="overclock"] .footer{
+  animation: crit-panel-in var(--d-slow) var(--crit-ease) both;
+}
+:root[data-theme="overclock"] .hero{ animation-delay: 0ms; }
+:root[data-theme="overclock"] .upload-card{ animation-delay: 90ms; }
+:root[data-theme="overclock"] #cardInfo{ animation-delay: 180ms; }
+:root[data-theme="overclock"] #cardActions{ animation-delay: 240ms; }
+:root[data-theme="overclock"] #progressWrap{ animation-delay: 300ms; }
+:root[data-theme="overclock"] .result-card{ animation-delay: 360ms; }
+:root[data-theme="overclock"] .footer{ animation-delay: 420ms; }
+@keyframes crit-panel-in{
+  0%{ opacity:0; transform: translateY(30px) scale(.985); clip-path: inset(0 0 100% 0); }
+  100%{ opacity:1; transform: translateY(0) scale(1); clip-path: inset(0 0 -8% 0); }
+}
+
+/* ---- 7. cards: cyan L-brackets + hover snap (interactive <120ms) ---- */
+:root[data-theme="overclock"] .card{
+  border-color: rgba(34,211,238,.22);
+  background: linear-gradient(180deg, rgba(16,20,29,.92), rgba(11,14,20,.94));
+  transition: transform var(--d-quick) var(--crit-ease),
+              border-color var(--d-quick) linear;
+}
+:root[data-theme="overclock"] .card:hover{
+  transform: translateY(-3px);
+  border-color: rgba(34,211,238,.45);
+}
+:root[data-theme="overclock"] .card::before{
+  border-color: var(--cyber-bracket);
+  filter: drop-shadow(0 0 4px rgba(34,211,238,.5));
+  transition: transform var(--d-quick) var(--crit-ease);
+}
+:root[data-theme="overclock"] .card:hover::before{ transform: scale(1.04); }
+:root[data-theme="overclock"] .card::after{ color: var(--cyber-amber-dim); }
+:root[data-theme="overclock"] .card-head h2{ color: var(--cyber-text); }
+:root[data-theme="overclock"] .step-no{
+  color: var(--cyber-primary);
+  border-color: rgba(34,211,238,.4);
+}
+
+/* ---- 8. dropzone: targeting reticle + radar sweep ---- */
 :root[data-theme="overclock"] .dropzone{
   border: 1px solid rgba(34,211,238,.35);
   background:
@@ -109,31 +203,19 @@
   animation: crit-radar 3.6s linear infinite;
   pointer-events: none;
 }
-@keyframes crit-radar{
-  to{ transform: rotate(360deg); }
-}
+@keyframes crit-radar{ to{ transform: rotate(360deg); } }
+:root[data-theme="overclock"] .dropzone:hover{ border-color: rgba(255,176,0,.55); }
 :root[data-theme="overclock"] .dz-title{ color: var(--cyber-text); }
 :root[data-theme="overclock"] .dz-hint, :root[data-theme="overclock"] .privacy-note{
   color: var(--cyber-text-faint);
 }
 
-/* ---- 7. cards: cyan L-brackets, amber coordinate noise ---- */
-:root[data-theme="overclock"] .card{
-  border-color: rgba(34,211,238,.22);
-  background: linear-gradient(180deg, rgba(16,20,29,.92), rgba(11,14,20,.94));
+/* ---- 9. buttons: primary cyan / secondary amber / Energetic press ---- */
+:root[data-theme="overclock"] .btn{
+  transition: transform 60ms linear, background var(--d-quick) linear,
+              color var(--d-quick) linear, border-color var(--d-quick) linear;
 }
-:root[data-theme="overclock"] .card::before{
-  border-color: var(--cyber-bracket);
-  filter: drop-shadow(0 0 4px rgba(34,211,238,.5));
-}
-:root[data-theme="overclock"] .card::after{ color: var(--cyber-amber-dim); }
-:root[data-theme="overclock"] .card-head h2{ color: var(--cyber-text); }
-:root[data-theme="overclock"] .step-no{
-  color: var(--cyber-primary);
-  border-color: rgba(34,211,238,.4);
-}
-
-/* ---- 8. buttons: primary cyan / secondary amber outline / ghost dim ---- */
+:root[data-theme="overclock"] .btn:active{ transform: scale(0.96); }
 :root[data-theme="overclock"] .btn-primary{
   background: linear-gradient(180deg, #2BD9F2, #0EA5C9);
   color: #04121A;
@@ -142,6 +224,7 @@
 }
 :root[data-theme="overclock"] .btn-primary:not(:disabled):hover{
   background: linear-gradient(180deg, #4BE2F7, #12B4D8);
+  transform: translateY(-1px);
 }
 :root[data-theme="overclock"] .btn-secondary{
   color: var(--cyber-amber);
@@ -155,14 +238,24 @@
 :root[data-theme="overclock"] .btn-ghost{ color: var(--cyber-text-dim); border-color: var(--cyber-border); }
 :root[data-theme="overclock"] .btn-ghost:not(:disabled):hover{ color: var(--cyber-cyan); border-color: rgba(34,211,238,.45); }
 
-/* ---- 9. progress: data(cyan) flowing into warning(amber) ---- */
+/* ---- 10. progress: data(cyan) -> warning(amber), shimmer sweep ---- */
 :root[data-theme="overclock"] .progress-fill{
   background: linear-gradient(90deg, #0E7490, #22D3EE 55%, #FFB000);
   box-shadow: 0 0 10px rgba(34,211,238,.5);
+  position: relative;
+  overflow: hidden;
 }
+:root[data-theme="overclock"] .progress-fill::after{
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, rgba(233,242,249,.35) 50%, transparent 80%);
+  transform: translateX(-100%);
+  animation: crit-shimmer 1.8s var(--crit-ease) infinite;
+}
+@keyframes crit-shimmer{ to{ transform: translateX(100%); } }
 :root[data-theme="overclock"] .progress-log{ color: var(--cyber-text-dim); }
 
-/* ---- 10. code CRT: cyan frame, amber gutter ---- */
+/* ---- 11. code CRT + tabs + syntax ---- */
 :root[data-theme="overclock"] .code-wrap{ border-color: rgba(34,211,238,.25); }
 :root[data-theme="overclock"] .code-wrap::before{
   color: var(--cyber-amber-dim);
@@ -179,24 +272,26 @@
 :root[data-theme="overclock"] .tok-cmt{ color: var(--cyber-text-faint); }
 :root[data-theme="overclock"] .tok-num{ color: #FCA5A5; }
 
-/* ---- 11. format chips: cyan outline, amber hover (warning = interaction) ---- */
+/* ---- 12. format chips: cyan idle, amber on interaction ---- */
 :root[data-theme="overclock"] .fmt-chip{
   color: var(--cyber-cyan);
   border-color: rgba(34,211,238,.35);
   background: rgba(34,211,238,.05);
+  transition: color var(--d-quick) linear, border-color var(--d-quick) linear,
+              background var(--d-quick) linear, transform var(--d-quick) var(--crit-ease);
 }
 :root[data-theme="overclock"] .fmt-chip:hover{
   color: var(--cyber-amber);
   border-color: rgba(255,176,0,.6);
   background: rgba(255,176,0,.08);
+  transform: translateY(-1px);
 }
 
-/* ---- 12. memory warning dialog: full hazard treatment (MELTDOWN DNA) ---- */
+/* ---- 13. memory warning dialog: full hazard treatment ---- */
 :root[data-theme="overclock"] .warn-mask{
   background: rgba(2,3,6,.78);
   backdrop-filter: blur(3px);
 }
-.js-crit .cmd-overlay .cmd-title,
 :root[data-theme="overclock"] #warnTitle{
   color: var(--cyber-amber);
   text-shadow: var(--cyber-amber-glow);
@@ -212,7 +307,28 @@
   border-color: var(--cyber-border);
 }
 
-/* ---- 13. CMD transition: cyan protocol title, amber alert, red error ---- */
+/* ---- 14. CMD transition: cinematic takeover (primary motion) ---- */
+:root[data-theme="overclock"] .cmd-overlay.on .cmd-inner{
+  animation: crit-cmd-slam 120ms var(--crit-ease) both;
+}
+@keyframes crit-cmd-slam{
+  0%{ transform: scale(1.045); filter: brightness(2.2) blur(4px); opacity: .4; }
+  100%{ transform: scale(1); filter: brightness(1) blur(0); opacity: 1; }
+}
+.cmd-overlay.on .cmd-title{
+  animation: crit-title-in 620ms var(--crit-ease) both;
+}
+@keyframes crit-title-in{
+  0%{ opacity:0; transform: scale(1.35); filter: blur(10px); letter-spacing: .4em; }
+  100%{ opacity:1; transform: scale(1); filter: blur(0); letter-spacing: normal; }
+}
+.cmd-overlay .cmd-line{
+  animation: crit-line-in var(--d-quick) var(--crit-ease) both;
+}
+@keyframes crit-line-in{
+  0%{ opacity:0; transform: translateX(-14px); }
+  100%{ opacity:1; transform: translateX(0); }
+}
 .cmd-overlay .cmd-title{
   color: var(--cyber-primary);
   text-shadow: 0 0 18px rgba(34,211,238,.6);
@@ -223,10 +339,110 @@
   background-clip: text;
 }
 .cmd-overlay .cmd-alert{ color: var(--cyber-amber); }
+.cmd-overlay .cmd-alert{ animation: crit-alert-pulse .5s ease-in-out infinite; }
+@keyframes crit-alert-pulse{
+  0%,100%{ text-shadow: 0 0 8px rgba(255,176,0,.5); }
+  50%{ text-shadow: 0 0 22px rgba(255,176,0,.95); }
+}
 .cmd-overlay .cmd-err{ color: var(--cyber-danger); }
 .cmd-caret{ background: var(--cyber-amber); }
+/* alert beat: the whole screen pulses amber once per alert line */
+.cmd-overlay.on:has(.cmd-alert){ animation: crit-amber-slam 420ms var(--crit-ease) 1; }
+@keyframes crit-amber-slam{
+  0%{ filter: brightness(1); }
+  30%{ filter: brightness(1.5) saturate(1.4); }
+  100%{ filter: brightness(1); }
+}
 
-/* ---- 14. glitch wordmark: RGB split now cyan/red (green retired) ---- */
+/* ---- 15. storm: harder shake, harder slice glitch ---- */
+body.oc-shake{ animation: critShake .25s steps(2) infinite; }
+@keyframes critShake{
+  0%{ transform: translate(0,0); }
+  25%{ transform: translate(-7px,5px); }
+  50%{ transform: translate(6px,-7px); }
+  75%{ transform: translate(-4px,-4px); }
+  100%{ transform: translate(0,0); }
+}
+.cmd-overlay.glitching .cmd-inner{
+  animation: crit-slice .18s steps(3) infinite;
+}
+@keyframes crit-slice{
+  0%{ clip-path: inset(0 0 0 0); transform: translate(0,0);
+      text-shadow: -3px 0 rgba(255,77,94,.8), 3px 0 rgba(34,211,238,.8); }
+  33%{ clip-path: inset(12% 0 38% 0); transform: translate(-6px,2px);
+      text-shadow: 4px 0 rgba(255,77,94,.8), -4px 0 rgba(255,176,0,.8); }
+  66%{ clip-path: inset(46% 0 8% 0); transform: translate(5px,-3px);
+      text-shadow: -4px 0 rgba(34,211,238,.8), 4px 0 rgba(255,77,94,.8); }
+  100%{ clip-path: inset(0 0 0 0); transform: translate(0,0); }
+}
+
+/* ---- 16. exit: white flash + wipe down (the old coverDown was a no-op) ---- */
+.cmd-overlay.exiting{
+  animation: crit-exit-flash 220ms var(--crit-in) forwards;
+}
+@keyframes crit-exit-flash{
+  0%{ filter: brightness(2.6); opacity: 1; clip-path: inset(0 0 0 0); }
+  100%{ filter: brightness(1); opacity: 1; clip-path: inset(0 0 100% 0); }
+}
+.cmd-overlay.exiting .cmd-inner{
+  animation: crit-scroll-up .35s var(--crit-in) forwards;
+}
+@keyframes crit-scroll-up{ to{ transform: translateY(-120px); opacity: 0; filter: blur(3px); } }
+
+/* ---- 17. errFlash: the finale (dramatic reveal 900ms tier) ---- */
+.oc-errflash{
+  position: fixed; inset: 0; z-index: 300;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255,77,94,.16), transparent 55%),
+    rgba(2,3,6,.94);
+  animation: crit-err-bg .18s var(--crit-ease) both;
+}
+@keyframes crit-err-bg{ from{ opacity: 0; } to{ opacity: 1; } }
+.oc-errflash__big{
+  font-size: clamp(36px, 9vw, 108px);
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--cyber-danger);
+  text-shadow:
+    -3px 0 rgba(34,211,238,.7), 3px 0 rgba(255,176,0,.55),
+    0 0 34px rgba(255,77,94,.8);
+  animation: crit-err-big 220ms var(--crit-back) both,
+             crit-err-jitter .32s steps(2) .25s infinite;
+}
+@keyframes crit-err-big{
+  0%{ opacity:0; transform: scale(1.6); filter: blur(8px); }
+  100%{ opacity:1; transform: scale(1); filter: blur(0); }
+}
+@keyframes crit-err-jitter{
+  0%{ transform: translate(0,0); }
+  50%{ transform: translate(-2px,1px); }
+  100%{ transform: translate(0,0); }
+}
+.oc-errflash__sub{
+  color: var(--cyber-amber);
+  letter-spacing: .3em;
+  animation: crit-err-sub 300ms var(--crit-ease) 120ms both;
+}
+@keyframes crit-err-sub{
+  0%{ opacity:0; transform: translateY(10px); }
+  100%{ opacity:1; transform: translateY(0); }
+}
+.oc-errflash__code{
+  color: var(--cyber-text-faint);
+  font-size: 12px;
+  animation: crit-err-sub 300ms var(--crit-ease) 220ms both;
+}
+.oc-errflash.off{ animation: crit-err-off .4s var(--crit-in) forwards; }
+@keyframes crit-err-off{ to{ opacity: 0; filter: brightness(2); } }
+
+/* ---- 18. chips/toggles/audio/switch (v1 carry-over, kept) ---- */
+:root[data-theme="overclock"] .engine-badge{ border-color: rgba(34,211,238,.4); color: var(--cyber-cyan); }
+:root[data-theme="overclock"] .file-item{ border-color: var(--cyber-border); }
+:root[data-theme="overclock"] .switch input:checked + .switch-slider{ background: var(--cyber-primary); }
+:root[data-theme="overclock"] .text-input:focus,
+:root[data-theme="overclock"] .select-input:focus{ border-color: rgba(34,211,238,.6); }
 [data-theme="overclock"] .oc-en.hero-title{
   text-shadow:
     -2px 0 rgba(255,77,94,.75),
@@ -236,15 +452,11 @@
 [data-theme="overclock"] .oc-en:not(.hero-title){
   text-shadow: -1px 0 rgba(255,77,94,.55), 1px 0 rgba(34,211,238,.55);
 }
-
-/* ---- 15. form switch + audio toggle: cyan when armed ---- */
 .swap-btn.m-oc .oc-en,
 .swap-btn.m-open .oc-en{ color: var(--cyber-primary); }
 .swap-btn.m-open .swap-btn__disc{ border-color: rgba(34,211,238,.7); }
 :root[data-theme="overclock"] .audio-toggle{ color: var(--cyber-cyan); border-color: rgba(34,211,238,.4); }
 :root[data-theme="overclock"] .audio-toggle.is-muted{ color: var(--cyber-danger); border-color: rgba(255,77,94,.5); }
-
-/* ---- 16. result stats + footer status line ---- */
 :root[data-theme="overclock"] .result-stats{ color: var(--cyber-amber); }
 :root[data-theme="overclock"] .footer{
   border-top: 1px solid rgba(255,176,0,.22);
@@ -258,9 +470,12 @@
   font-size: 10px;
 }
 
-/* ---- 17. error art text stays red, protocol name updated in copy ---- */
-:root[data-theme="overclock"] .engine-badge{ border-color: rgba(34,211,238,.4); color: var(--cyber-cyan); }
-:root[data-theme="overclock"] .file-item{ border-color: var(--cyber-border); }
-:root[data-theme="overclock"] .switch input:checked + .switch-slider{ background: var(--cyber-primary); }
-:root[data-theme="overclock"] .text-input:focus,
-:root[data-theme="overclock"] .select-input:focus{ border-color: rgba(34,211,238,.6); }
+/* ---- 19. accessibility: reduced motion kills every movement ---- */
+@media (prefers-reduced-motion: reduce){
+  :root[data-theme="overclock"] *,
+  .cmd-overlay *, .oc-errflash *{
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

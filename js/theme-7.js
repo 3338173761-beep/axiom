@@ -17,7 +17,7 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//CRITICAL PROTOCOL v2.9.0',            ms: 60 },
+    { t: 'title', text: 'AXIOM//CRITICAL PROTOCOL v2.9.1',            ms: 60 },
     { t: 'copy',  text: '(c) Echo Critical Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
@@ -593,7 +593,8 @@
         if (line.t === 'alert') {
           // 警报床：长鸣贯穿整个错乱段，卡 bar0 beat1
           chain = chain.then(function () {
-            try { var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart(); } catch (e) {}
+            try { var m = window.__axiomMusic; if (m && m.alarmBedStart) m.alarmBedStart();
+            if (m && m.stormDrumsStart) m.stormDrumsStart(); } catch (e) {}
             return waitBeat(1);
           });
           var _prevBeat = -1;
@@ -609,7 +610,13 @@
           });
           // 收尾：全屏黑 + 红色报错艺术字
           chain = chain.then(function () {
-            return waitBeat(STORM_ERR_BEAT).then(function () { return self.errFlash(); });
+            return waitBeat(STORM_ERR_BEAT)
+              .then(function () { return self.errFlash(); })
+              .then(function () {
+                // storm is over: the drum bed must not keep rolling through the
+                // whole form-2 session (the bed exists to fill the STORM gaps)
+                try { var m2 = window.__axiomMusic; if (m2 && m2.stormDrumsStop) m2.stormDrumsStop(); } catch (e2) {}
+              });
           });
         }
       });
