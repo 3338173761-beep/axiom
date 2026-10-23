@@ -7,7 +7,6 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>Axiom · 多格式自动反编译器</title>
 <link rel="stylesheet" href="css/style-7.css?v=43">
-<link rel="stylesheet" href="css/critical.css?v=2">
 </head>
 <body>
 
@@ -15,14 +14,14 @@
 <div class="bg-glow" aria-hidden="true"></div>
 <div class="bg-grid" aria-hidden="true"></div>
 
-<!-- 临界协议：二进制矩阵雨背景（仅第二形态激活） -->
+<!-- 超频协议：二进制矩阵雨背景（仅第二形态激活） -->
 <canvas id="cyberRain" aria-hidden="true"></canvas>
 <!-- 常驻扫描线（第二形态） -->
 <div class="scanlines" id="scanlines" aria-hidden="true"></div>
-<!-- 临界协议警示条（第二形态顶部） -->
+<!-- 超频警示条（第二形态顶部） -->
 <div id="ocBanner" class="oc-banner" aria-hidden="true">
   <span class="oc-banner__hazard">▲</span>
-  <span class="oc-banner__text">CRITICAL DEGRADED MODE · 系统运行于临界降级状态</span>
+  <span class="oc-banner__text">OVERCLOCK DEGRADED MODE · 系统运行于超频降级状态</span>
   <span class="oc-banner__hz">2.4GHz→3.9GHz</span>
 </div>
 <!-- CMD 引导转场覆盖层 -->
@@ -35,7 +34,7 @@
   </div>
 </div>
 
-<!-- 临界协议安全警告（每次进入都显示，正规化） -->
+<!-- 超频协议安全警告（每次进入都显示，正规化） -->
 <div id="memWarn" class="warn-mask" role="alertdialog" aria-modal="true" aria-labelledby="warnTitle" aria-describedby="warnBody" hidden>
   <div class="warn-panel">
     <div class="warn-strip"></div>
@@ -47,7 +46,7 @@
       <p class="warn-section">▍光敏性警告 · PHOTOSENSITIVITY</p>
       <p id="warnBody" class="warn-body">极少部分人可能会因为接触到某些视觉图像（包括但不限于光图案或闪光）而出现癫痫症状或晕眩。如果您在开启本界面期间出现以下任何症状，请立即停止使用，并在继续前咨询医生：晕眩、癫痫、头晕、视力改变、眼睛或肌肉抽搐、手臂或双腿抽搐或颤抖、失去意识、定向障碍、意识模糊、任何不自主运动或痉挛。</p>
       <p id="warnMemRow" class="warn-section" hidden>▍内存警告 · MEMORY</p>
-      <p id="warnMem" class="warn-body" hidden>检测到设备内存不足 8 GB。开启「临界协议」会运行 Canvas 矩阵雨与霓虹动效，可能导致页面卡顿、风扇狂转或手机发烫，建议保持原版界面。你仍可以手动开启，系统会自动启用性能降级（限帧、降低密度）。</p>
+      <p id="warnMem" class="warn-body" hidden>检测到设备内存不足 8 GB。开启「超频协议」会运行 Canvas 矩阵雨与霓虹动效，可能导致页面卡顿、风扇狂转或手机发烫，建议保持原版界面。你仍可以手动开启，系统会自动启用性能降级（限帧、降低密度）。</p>
     </div>
     <div class="warn-actions">
       <button id="warnCancel" class="btn warn-btn warn-btn-cancel" type="button">取消</button>
@@ -109,9 +108,9 @@
   <!-- Hero -->
   <section class="hero">
     <div class="hero-kicker" aria-hidden="true">
-      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.9.1 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
+      <span class="hero-kicker__tick">▮</span> AXIOM TERMINAL v2.8.41 — LOCAL BUILD<span class="hero-kicker__tick">▮</span>
     </div>
-    <h1 class="hero-title">把编译过的脚本，<em> data-text="还原成源码"还原成源码</em></h1>
+    <h1 class="hero-title">把编译过的脚本，<em>还原成源码</em></h1>
     <p class="hero-sub">rpyc · rpa · pyc · apk · dex · jar —— 拖进来，引擎在浏览器内本地运行，文件不上传</p>
     <div class="fmt-cloud" id="fmtCloud"></div>
   </section>
@@ -268,18 +267,18 @@
   <span id="footEngine">引擎层：Pyodide · 浏览器本地运行 · 待加载</span>
 </footer>
 
-<!-- 底部切换按钮：临界协议（机械展开） -->
+<!-- 底部切换按钮：超频协议（机械展开） -->
 <button id="swapBtn" class="swap-btn" type="button" aria-haspopup="dialog">
   <span class="swap-btn__shell"></span>
   <span class="swap-btn__disc" aria-hidden="true"></span>
-  <span class="swap-btn__label">临界协议</span>
+  <span class="swap-btn__label">超频协议</span>
 </button>
 
 <script src="js/format-data.js?v=27"></script>
 <script src="js/format.js?v=28"></script>
 <script src="js/engines.js?v=30"></script>
 <script src="js/translate.js?v=27"></script>
-<script src="js/theme-7.js?v=54"></script>
+<script src="js/theme-7.js?v=53"></script>
 <script src="js/music.js?v=41"></script>
 <script src="js/audio-toggle.js?v=29"></script>
 <script src="js/app.js?v=32"></script>

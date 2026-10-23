@@ -1,10 +1,10 @@
 /* ============================================================
- * Axiom 临界协议（Critical Protocol）— 第二形态主题引擎 v2
+ * Axiom 超频协议（Overclock Protocol）— 第二形态主题引擎 v2
  * 本次重做（对应用户 7 条验收意见）：
  *   1) 点击瞬间底层即纯黑（cmdOverlay 立即全黑实底，不再透明露底）
  *   2) 切换按钮缩小、低调、fixed 底部居中，转场期间隐藏
  *   3) 删除粒子烟花 → 改为「闪屏错乱」序列（黑白脉冲 + 青绿 glitch 撕裂条）
- *   4) CMD 以红色 [ERR] 报错收尾（临界=危险阈值，呼应鸣潮世界观）
+ *   4) CMD 以红色 [ERR] 报错收尾（超频=危险，呼应鸣潮世界观）
  *   5) 第二形态整体重设计：终端 HUD 状态栏 / LED 灯带 / 噪点 /
  *      切角面板 + L 角标 + 坐标噪声 / CRT 代码区 / 顶部警示条
  * 规则：纯前端、零外部库、只动 transform/opacity/background
@@ -17,8 +17,8 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//CRITICAL PROTOCOL v2.9.1',            ms: 60 },
-    { t: 'copy',  text: '(c) Echo Critical Terminal — local build',   ms: 40 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.41',            ms: 60 },
+    { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
     { t: 'cmd',   text: '> mount modules',                             ms: 45 },
@@ -29,7 +29,7 @@
     { t: 'out',   text: '[ OK ] resonance locked 2.4GHz',              ms: 38 },
     { t: 'cmd',   text: '> overclock frequency cores',                 ms: 45 },
     { t: 'out',   text: '[ OK ] cores unlocked 8/8',                   ms: 38 },
-    { t: 'alert', text: '⚠ CRITICAL ALERT — FREQUENCY LIMIT EXCEEDED', ms: 40 },
+    { t: 'alert', text: '⚠ OVERCLOCK ALERT — FREQUENCY LIMIT EXCEEDED', ms: 40 },
     { t: 'cmd',   text: '> bypass safety limiter',                     ms: 45 },
     { t: 'err',   text: '[ ERR ] FREQUENCY INSTABILITY DETECTED',      ms: 40 },
     { t: 'err',   text: '[ ERR ] core temp critical — overclock fail', ms: 40 },
@@ -39,7 +39,7 @@
   /* ---------- 故障风暴：乱码雨 + 彩色 glitch 块 + 条带撕裂 + 噪点（错乱段主效果） ---------- */
   var storm = {
     cv: null, ctx: null, W: 0, H: 0, rafId: 0, t0: 0, dur: 0, palette: 'red',
-    CHARS: '01▓▒░█▄▀■◢◣◥◤┌┐└┘┤├┬┴┼╋═║╔╗╚╝ 異常覚醒崩壊周波数核心臨界AXIOMCRITICAL',
+    CHARS: '01▓▒░█▄▀■◢◣◥◤┌┐└┘┤├┬┴┼╋═║╔╗╚╝ 異常覚醒崩壊周波数核心臨界AXIOMOVERCLOCK',
     init: function () {
       this.cv = $('glitchStorm');
       if (!this.cv) return;
@@ -493,7 +493,7 @@
     }
   };
 
-  /* ---------- 安全警告弹窗（每次进入临界协议都显示：光敏 + 内存） ---------- */
+  /* ---------- 安全警告弹窗（每次进入超频协议都显示：光敏 + 内存） ---------- */
   var warn = {
     el: null,
     init: function () {
@@ -547,7 +547,7 @@
     var overlay = $('cmdOverlay');
     btn.classList.remove('m-oc');
     var lbl = btn.querySelector('.swap-btn__label');
-    if (lbl) lbl.textContent = '临界协议';
+    if (lbl) lbl.textContent = '超频协议';
     btn.classList.add('m-hide');
     rain.cfg.speed = 3;
     setTimeout(function () {

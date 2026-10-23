@@ -1,10 +1,10 @@
 /* ============================================================
- * Axiom 临界协议（Critical Protocol）— 第二形态主题引擎 v2
+ * Axiom 超频协议（Overclock Protocol）— 第二形态主题引擎 v2
  * 本次重做（对应用户 7 条验收意见）：
  *   1) 点击瞬间底层即纯黑（cmdOverlay 立即全黑实底，不再透明露底）
  *   2) 切换按钮缩小、低调、fixed 底部居中，转场期间隐藏
  *   3) 删除粒子烟花 → 改为「闪屏错乱」序列（黑白脉冲 + 青绿 glitch 撕裂条）
- *   4) CMD 以红色 [ERR] 报错收尾（临界=危险阈值，呼应鸣潮世界观）
+ *   4) CMD 以红色 [ERR] 报错收尾（超频=危险，呼应鸣潮世界观）
  *   5) 第二形态整体重设计：终端 HUD 状态栏 / LED 灯带 / 噪点 /
  *      切角面板 + L 角标 + 坐标噪声 / CRT 代码区 / 顶部警示条
  * 规则：纯前端、零外部库、只动 transform/opacity/background
@@ -17,8 +17,8 @@
 
   /* ---------- CMD 引导脚本：前半段正常 → 红色警示条 → 错乱闪屏 → 报错收尾 ---------- */
   var CMD_SCRIPT = [
-    { t: 'title', text: 'AXIOM//CRITICAL PROTOCOL v2.9.1',            ms: 60 },
-    { t: 'copy',  text: '(c) Echo Critical Terminal — local build',   ms: 40 },
+    { t: 'title', text: 'AXIOM//OVERCLOCK PROTOCOL v2.8.41',            ms: 60 },
+    { t: 'copy',  text: '(c) Echo Overclock Terminal — local build',   ms: 40 },
     { t: 'cmd',   text: '> system init',                               ms: 45 },
     { t: 'out',   text: '[ OK ] core bootstrapped 0.42ms',             ms: 38 },
     { t: 'cmd',   text: '> mount modules',                             ms: 45 },
@@ -29,7 +29,7 @@
     { t: 'out',   text: '[ OK ] resonance locked 2.4GHz',              ms: 38 },
     { t: 'cmd',   text: '> overclock frequency cores',                 ms: 45 },
     { t: 'out',   text: '[ OK ] cores unlocked 8/8',                   ms: 38 },
-    { t: 'alert', text: '⚠ CRITICAL ALERT — FREQUENCY LIMIT EXCEEDED', ms: 40 },
+    { t: 'alert', text: '⚠ OVERCLOCK ALERT — FREQUENCY LIMIT EXCEEDED', ms: 40 },
     { t: 'cmd',   text: '> bypass safety limiter',                     ms: 45 },
     { t: 'err',   text: '[ ERR ] FREQUENCY INSTABILITY DETECTED',      ms: 40 },
     { t: 'err',   text: '[ ERR ] core temp critical — overclock fail', ms: 40 },
@@ -48,7 +48,7 @@
     { beat: 6,  hit: 'boom1', storm: [900, 'red'] },
     { beat: 7,  hit: 'flash', flash: [120, 'rgba(255,77,94,0.45)'] },
     { beat: 8,  hit: 'flash', flash: [90,  'rgba(209,247,255,0.40)'] },
-    { beat: 9,  hit: 'flash', flash: [80,  'rgba(255,176,0,0.35)'] },
+    { beat: 9,  hit: 'flash', flash: [80,  'rgba(0,255,136,0.35)'] },
     { beat: 11, hit: 'boom2', storm: [860, 'green'] },
     { beat: 12, hit: 'flash', flash: [100, 'rgba(209,247,255,0.50)'] },
     { beat: 13, hit: 'flash', flash: [80,  'rgba(255,77,94,0.50)'] },
@@ -60,7 +60,7 @@
     ] },
     { beat: 18, hit: 'flash', flash: [110, 'rgba(255,255,255,0.85)'] },
     { beat: 19, burst: [
-      { off: 0,   ms: 110, c: 'rgba(255,176,0,0.90)',   hit: 'flash' },
+      { off: 0,   ms: 110, c: 'rgba(0,255,136,0.90)',   hit: 'flash' },
       { off: 110, ms: 110, c: 'rgba(255,77,94,0.90)',   hit: 'flash' },
       { off: 220, ms: 110, c: 'rgba(209,247,255,0.95)', hit: 'flash' },
       { off: 330, ms: 130, c: 'rgba(255,255,255,0.95)', hit: 'stab'  }
@@ -111,7 +111,7 @@
   /* ---------- 故障风暴：乱码雨 + 彩色 glitch 块 + 条带撕裂 + 噪点（错乱段主效果） ---------- */
   var storm = {
     cv: null, ctx: null, W: 0, H: 0, rafId: 0, t0: 0, dur: 0, palette: 'red',
-    CHARS: '01▓▒░█▄▀■◢◣◥◤┌┐└┘┤├┬┴┼╋═║╔╗╚╝ 異常覚醒崩壊周波数核心臨界AXIOMCRITICAL',
+    CHARS: '01▓▒░█▄▀■◢◣◥◤┌┐└┘┤├┬┴┼╋═║╔╗╚╝ 異常覚醒崩壊周波数核心臨界AXIOMOVERCLOCK',
     init: function () {
       this.cv = $('glitchStorm');
       if (!this.cv) return;
@@ -167,7 +167,7 @@
         }
         ctx.putImageData(this.snowImg, 0, 0);
         if (Math.random() < 0.4) {
-          ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '255,77,94' : '34,211,238') + ',0.28)';
+          ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '255,77,94' : '0,212,255') + ',0.28)';
           ctx.fillRect(0, 0, W, H);
         }
         this.rafId = requestAnimationFrame(function (tt) { self.frame(tt); });
@@ -176,10 +176,9 @@
       ctx.fillStyle = 'rgba(2,3,8,0.30)';
       ctx.fillRect(0, 0, W, H);
       var c1, c2, c3;
-      if (this.palette === 'red') { c1 = '255,77,94'; c2 = '34,211,238'; c3 = '255,255,255'; }
-      /* palette key 'green' kept for call-site compat; its color is now AMBER (MELTDOWN tier) */
-      else if (this.palette === 'green') { c1 = '255,176,0'; c2 = '255,77,94'; c3 = '233,242,249'; }
-      else { c1 = '255,255,255'; c2 = '34,211,238'; c3 = '255,176,0'; }
+      if (this.palette === 'red') { c1 = '255,77,94'; c2 = '0,212,255'; c3 = '255,255,255'; }
+      else if (this.palette === 'green') { c1 = '0,255,136'; c2 = '255,77,94'; c3 = '209,247,255'; }
+      else { c1 = '255,255,255'; c2 = '0,212,255'; c3 = '255,77,94'; }
       // 0) 全屏色相冲屏：随机概率整屏染色（错乱感）
       if (Math.random() < 0.06) {
         ctx.fillStyle = 'rgba(' + (Math.random() < 0.5 ? c1 : c2) + ',0.13)';
@@ -208,7 +207,7 @@
       for (var b = 0; b < blocks; b++) {
         var bw = 4 + Math.random() * 80, bh = 2 + Math.random() * 20;
         var bx = Math.random() * W, by = Math.random() * H;
-        var bc = Math.random() < 0.5 ? c1 : (Math.random() < 0.5 ? c2 : (Math.random() < 0.5 ? '255,176,0' : '255,255,255'));
+        var bc = Math.random() < 0.5 ? c1 : (Math.random() < 0.5 ? c2 : (Math.random() < 0.5 ? '0,255,136' : '255,255,255'));
         ctx.fillStyle = 'rgba(' + bc + ',' + (0.15 + Math.random() * 0.5) + ')';
         ctx.fillRect(bx, by, bw, bh);
       }
@@ -231,7 +230,7 @@
         var words = ['ERR', 'FATAL', 'SIGNAL', 'KERNEL', '0xDEAD', 'PANIC', 'CORRUPT'];
         var wd = words[Math.floor(Math.random() * words.length)];
         ctx.font = fsz + 'px Orbitron, "Share Tech Mono", monospace';
-        ctx.fillStyle = 'rgba(34,211,238,0.5)';
+        ctx.fillStyle = 'rgba(0,212,255,0.5)';
         ctx.fillText(wd, tx + 4 + Math.random() * 8, ty + 4 + Math.random() * 8);
         ctx.fillStyle = 'rgba(255,77,94,' + (0.5 + Math.random() * 0.45) + ')';
         ctx.fillText(wd, tx, ty);
@@ -437,7 +436,7 @@
         var x = i * this.fontSize * 0.85;
         var y = this.drops[i] * this.fontSize;
         var bright = Math.random() < 0.12;
-        ctx.fillStyle = bright ? 'rgba(255,176,0,0.9)' : 'rgba(34,211,238,0.34)';
+        ctx.fillStyle = bright ? 'rgba(0,255,136,0.9)' : 'rgba(0,212,255,0.34)';
         ctx.fillText(Math.random() > 0.5 ? '1' : '0', x, y);
         if (y > H + 40 && Math.random() > 0.976) this.drops[i] = Math.random() * -40;
         this.drops[i] += this.cfg.speed;
@@ -469,8 +468,7 @@
     var box = $('glitchBars');
     if (!box) return;
     box.innerHTML = '';
-    /* CRITICAL x MELTDOWN: red wave = alarm red + amber; normal wave = data cyan + amber */
-      var colors = red ? ['255,77,94', '255,176,0'] : ['34,211,238', '255,176,0'];
+    var colors = red ? ['255,77,94', '0,255,136'] : ['0,212,255', '0,255,136'];
     for (var i = 0; i < n; i++) {
       var bar = document.createElement('div');
       bar.className = 'glitch-bar';
@@ -613,8 +611,6 @@
             return waitBeat(STORM_ERR_BEAT)
               .then(function () { return self.errFlash(); })
               .then(function () {
-                // storm is over: the drum bed must not keep rolling through the
-                // whole form-2 session (the bed exists to fill the STORM gaps)
                 try { var m2 = window.__axiomMusic; if (m2 && m2.stormDrumsStop) m2.stormDrumsStop(); } catch (e2) {}
               });
           });
@@ -672,13 +668,13 @@
       unlockScroll();
       this.finishEnter();
     },
-    /* 红色报错收尾：全屏黑 + 红色艺术字（临界协议命名由来：越过临界阈值→系统报错） */
+    /* 红色报错收尾：全屏黑 + 红色艺术字（超频协议命名由来：超频=危险→系统报错） */
     errFlash: function () {
       var d = document.createElement('div');
       d.className = 'oc-errflash';
       var big = document.createElement('span');
       big.className = 'oc-errflash__big';
-      big.textContent = 'CRITICAL PROTOCOL FAILURE';
+      big.textContent = 'CRITICAL OVERCLOCK FAILURE';
       var sub = document.createElement('span');
       sub.className = 'oc-errflash__sub';
       sub.textContent = 'FREQUENCY LIMIT EXCEEDED · SYSTEM DEGRADED';
@@ -696,7 +692,7 @@
     }
   };
 
-  /* ---------- 安全警告弹窗（每次进入临界协议都显示：光敏 + 内存） ---------- */
+  /* ---------- 安全警告弹窗（每次进入超频协议都显示：光敏 + 内存） ---------- */
   var warn = {
     el: null,
     init: function () {
@@ -795,7 +791,7 @@
     var overlay = $('cmdOverlay');
     btn.classList.remove('m-oc');
     var lbl = btn.querySelector('.swap-btn__label');
-    if (lbl) lbl.textContent = '临界协议';
+    if (lbl) lbl.textContent = '超频协议';
     btn.classList.add('m-hide');
     rain.cfg.speed = 3;
     setTimeout(function () {
