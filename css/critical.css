@@ -1,0 +1,266 @@
+/* ============================================================
+   CRITICAL PROTOCOL - form-2 skin v1 (v2.9.0)
+   Fusion: CRITICAL (electric cyan / alarm red) x MELTDOWN (amber / hazard)
+   Color law: cyan = data & structure | amber = warning & degraded | red = faults only
+   Scope: everything is gated by :root[data-theme="overclock"], so form-1
+          (the plain UI) never sees a single rule from this file.
+   Load order: after style-7.css, same specificity -> later wins.
+   ============================================================ */
+
+/* ---- 1. palette transplant: one variable block recolors all 88 consumers ---- */
+:root[data-theme="overclock"]{
+  --cyber-bg:          #050609;
+  --cyber-surface:     #0B0E14;
+  --cyber-surface-2:   #10141D;
+  --cyber-grid-line:   #16222E;
+  --cyber-primary:     #22D3EE;
+  --cyber-primary-dim: #0E7490;
+  --cyber-green-accent:#67E8F9;
+  --cyber-blue:        #38BDF8;
+  --cyber-cyan:        #7DD3FC;
+  --cyber-teal-deep:   #155E75;
+  --cyber-amber:       #FFB000;
+  --cyber-amber-dim:   #B45309;
+  --cyber-amber-glow:  0 0 12px rgba(255,176,0,.40);
+  --cyber-text:        #E9F2F9;
+  --cyber-text-dim:    #8FA6B8;
+  --cyber-text-faint:  #54708A;
+  --cyber-border:      #1B3245;
+  --cyber-bracket:     #22D3EE;
+  --cyber-glow-primary:0 0 12px rgba(34,211,238,.45);
+  --cyber-glow-cyan:   0 0 10px rgba(125,211,252,.35);
+  --cyber-danger:      #FF4D5E;
+  --hazard-stripes:    repeating-linear-gradient(-45deg,#FFB000 0 12px,#0B0E14 12px 24px);
+}
+
+/* ---- 2. body frame: cyan data rail on top, amber hazard rail on bottom ---- */
+:root[data-theme="overclock"] body::before{
+  background: linear-gradient(90deg, #22D3EE, #7DD3FC 30%, #FFB000 65%, #B45309);
+}
+:root[data-theme="overclock"] body::after{
+  background: var(--hazard-stripes);
+  background-size: 48px 100%;
+  animation: crit-hazard-slide 2.4s linear infinite;
+  opacity: .85;
+}
+@keyframes crit-hazard-slide{
+  from{ background-position: 0 0; }
+  to{   background-position: 48px 0; }
+}
+
+/* ---- 3. protocol banner: hazard edge + amber scan sweep ---- */
+:root[data-theme="overclock"] .oc-banner{
+  border-top: 3px solid transparent;
+  border-image: var(--hazard-stripes) 3;
+  background:
+    linear-gradient(90deg, rgba(255,176,0,.10), transparent 35%),
+    var(--cyber-surface);
+}
+:root[data-theme="overclock"] .oc-banner__text{
+  color: var(--cyber-amber);
+  text-shadow: var(--cyber-amber-glow);
+}
+:root[data-theme="overclock"] .oc-banner__hazard{
+  background: var(--hazard-stripes);
+  background-size: 36px 100%;
+  animation: crit-hazard-slide 1.6s linear infinite;
+}
+
+/* ---- 4. topbar: HUD status bar, cyan rail + amber caution tick ---- */
+:root[data-theme="overclock"] .topbar{
+  border-bottom: 1px solid rgba(34,211,238,.30);
+  box-shadow: 0 1px 0 rgba(34,211,238,.12), 0 10px 30px rgba(0,0,0,.55);
+}
+:root[data-theme="overclock"] .topbar::after{
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -2px; height: 2px;
+  background: var(--hazard-stripes);
+  background-size: 28px 100%;
+  opacity: .35;
+  animation: crit-hazard-slide 3.2s linear infinite;
+  pointer-events: none;
+}
+:root[data-theme="overclock"] .brand-sub{ color: var(--cyber-amber); }
+:root[data-theme="overclock"] .hud-reads b{ color: var(--cyber-primary); }
+:root[data-theme="overclock"] .hud-read.is-warn b{ color: var(--cyber-amber); }
+
+/* ---- 5. hero: bigger contrast, cyan core, amber kicker tick ---- */
+:root[data-theme="overclock"] .hero-kicker__tick{ background: var(--cyber-amber); }
+:root[data-theme="overclock"] .hero-title em{
+  color: var(--cyber-primary);
+  text-shadow: 0 0 22px rgba(34,211,238,.55), 0 0 2px rgba(233,242,249,.9);
+}
+:root[data-theme="overclock"] .hero-sub{ color: var(--cyber-text-dim); }
+
+/* ---- 6. dropzone: targeting reticle + slow radar sweep ---- */
+:root[data-theme="overclock"] .dropzone{
+  border: 1px solid rgba(34,211,238,.35);
+  background:
+    radial-gradient(circle at 50% 120%, rgba(34,211,238,.10), transparent 55%),
+    var(--cyber-surface);
+  position: relative;
+  overflow: hidden;
+}
+:root[data-theme="overclock"] .dropzone::after{
+  content: "";
+  position: absolute; inset: 0;
+  background: conic-gradient(from 0deg,
+    rgba(34,211,238,.16) 0deg, transparent 55deg, transparent 360deg);
+  animation: crit-radar 3.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes crit-radar{
+  to{ transform: rotate(360deg); }
+}
+:root[data-theme="overclock"] .dz-title{ color: var(--cyber-text); }
+:root[data-theme="overclock"] .dz-hint, :root[data-theme="overclock"] .privacy-note{
+  color: var(--cyber-text-faint);
+}
+
+/* ---- 7. cards: cyan L-brackets, amber coordinate noise ---- */
+:root[data-theme="overclock"] .card{
+  border-color: rgba(34,211,238,.22);
+  background: linear-gradient(180deg, rgba(16,20,29,.92), rgba(11,14,20,.94));
+}
+:root[data-theme="overclock"] .card::before{
+  border-color: var(--cyber-bracket);
+  filter: drop-shadow(0 0 4px rgba(34,211,238,.5));
+}
+:root[data-theme="overclock"] .card::after{ color: var(--cyber-amber-dim); }
+:root[data-theme="overclock"] .card-head h2{ color: var(--cyber-text); }
+:root[data-theme="overclock"] .step-no{
+  color: var(--cyber-primary);
+  border-color: rgba(34,211,238,.4);
+}
+
+/* ---- 8. buttons: primary cyan / secondary amber outline / ghost dim ---- */
+:root[data-theme="overclock"] .btn-primary{
+  background: linear-gradient(180deg, #2BD9F2, #0EA5C9);
+  color: #04121A;
+  border-color: rgba(34,211,238,.6);
+  box-shadow: 0 0 0 1px rgba(34,211,238,.25), var(--cyber-glow-primary);
+}
+:root[data-theme="overclock"] .btn-primary:not(:disabled):hover{
+  background: linear-gradient(180deg, #4BE2F7, #12B4D8);
+}
+:root[data-theme="overclock"] .btn-secondary{
+  color: var(--cyber-amber);
+  border-color: rgba(255,176,0,.55);
+  background: rgba(255,176,0,.06);
+}
+:root[data-theme="overclock"] .btn-secondary:not(:disabled):hover{
+  background: rgba(255,176,0,.14);
+  box-shadow: var(--cyber-amber-glow);
+}
+:root[data-theme="overclock"] .btn-ghost{ color: var(--cyber-text-dim); border-color: var(--cyber-border); }
+:root[data-theme="overclock"] .btn-ghost:not(:disabled):hover{ color: var(--cyber-cyan); border-color: rgba(34,211,238,.45); }
+
+/* ---- 9. progress: data(cyan) flowing into warning(amber) ---- */
+:root[data-theme="overclock"] .progress-fill{
+  background: linear-gradient(90deg, #0E7490, #22D3EE 55%, #FFB000);
+  box-shadow: 0 0 10px rgba(34,211,238,.5);
+}
+:root[data-theme="overclock"] .progress-log{ color: var(--cyber-text-dim); }
+
+/* ---- 10. code CRT: cyan frame, amber gutter ---- */
+:root[data-theme="overclock"] .code-wrap{ border-color: rgba(34,211,238,.25); }
+:root[data-theme="overclock"] .code-wrap::before{
+  color: var(--cyber-amber-dim);
+  border-bottom-color: rgba(255,176,0,.25);
+}
+:root[data-theme="overclock"] .tab.active{
+  color: var(--cyber-primary);
+  border-bottom-color: var(--cyber-primary);
+}
+:root[data-theme="overclock"] .tok-kw{ color: var(--cyber-cyan); }
+:root[data-theme="overclock"] .tok-str{ color: #FFD166; }
+:root[data-theme="overclock"] .tok-str2{ color: #FDE68A; }
+:root[data-theme="overclock"] .tok-label{ color: var(--cyber-amber); }
+:root[data-theme="overclock"] .tok-cmt{ color: var(--cyber-text-faint); }
+:root[data-theme="overclock"] .tok-num{ color: #FCA5A5; }
+
+/* ---- 11. format chips: cyan outline, amber hover (warning = interaction) ---- */
+:root[data-theme="overclock"] .fmt-chip{
+  color: var(--cyber-cyan);
+  border-color: rgba(34,211,238,.35);
+  background: rgba(34,211,238,.05);
+}
+:root[data-theme="overclock"] .fmt-chip:hover{
+  color: var(--cyber-amber);
+  border-color: rgba(255,176,0,.6);
+  background: rgba(255,176,0,.08);
+}
+
+/* ---- 12. memory warning dialog: full hazard treatment (MELTDOWN DNA) ---- */
+:root[data-theme="overclock"] .warn-mask{
+  background: rgba(2,3,6,.78);
+  backdrop-filter: blur(3px);
+}
+.js-crit .cmd-overlay .cmd-title,
+:root[data-theme="overclock"] #warnTitle{
+  color: var(--cyber-amber);
+  text-shadow: var(--cyber-amber-glow);
+}
+:root[data-theme="overclock"] .warn-body{ color: var(--cyber-text-dim); }
+:root[data-theme="overclock"] #warnOk{
+  border-color: rgba(255,176,0,.6);
+  color: var(--cyber-amber);
+  background: rgba(255,176,0,.08);
+}
+:root[data-theme="overclock"] #warnCancel{
+  color: var(--cyber-text-dim);
+  border-color: var(--cyber-border);
+}
+
+/* ---- 13. CMD transition: cyan protocol title, amber alert, red error ---- */
+.cmd-overlay .cmd-title{
+  color: var(--cyber-primary);
+  text-shadow: 0 0 18px rgba(34,211,238,.6);
+}
+.cmd-overlay .cmd-grad{
+  background: linear-gradient(90deg, #22D3EE, #7DD3FC 60%, #FFB000);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.cmd-overlay .cmd-alert{ color: var(--cyber-amber); }
+.cmd-overlay .cmd-err{ color: var(--cyber-danger); }
+.cmd-caret{ background: var(--cyber-amber); }
+
+/* ---- 14. glitch wordmark: RGB split now cyan/red (green retired) ---- */
+[data-theme="overclock"] .oc-en.hero-title{
+  text-shadow:
+    -2px 0 rgba(255,77,94,.75),
+    2px 0 rgba(34,211,238,.75),
+    0 0 18px rgba(34,211,238,.45);
+}
+[data-theme="overclock"] .oc-en:not(.hero-title){
+  text-shadow: -1px 0 rgba(255,77,94,.55), 1px 0 rgba(34,211,238,.55);
+}
+
+/* ---- 15. form switch + audio toggle: cyan when armed ---- */
+.swap-btn.m-oc .oc-en,
+.swap-btn.m-open .oc-en{ color: var(--cyber-primary); }
+.swap-btn.m-open .swap-btn__disc{ border-color: rgba(34,211,238,.7); }
+:root[data-theme="overclock"] .audio-toggle{ color: var(--cyber-cyan); border-color: rgba(34,211,238,.4); }
+:root[data-theme="overclock"] .audio-toggle.is-muted{ color: var(--cyber-danger); border-color: rgba(255,77,94,.5); }
+
+/* ---- 16. result stats + footer status line ---- */
+:root[data-theme="overclock"] .result-stats{ color: var(--cyber-amber); }
+:root[data-theme="overclock"] .footer{
+  border-top: 1px solid rgba(255,176,0,.22);
+  color: var(--cyber-text-faint);
+}
+:root[data-theme="overclock"] .footer::before{
+  content: "CRITICAL";
+  color: var(--cyber-amber);
+  letter-spacing: .2em;
+  margin-right: 10px;
+  font-size: 10px;
+}
+
+/* ---- 17. error art text stays red, protocol name updated in copy ---- */
+:root[data-theme="overclock"] .engine-badge{ border-color: rgba(34,211,238,.4); color: var(--cyber-cyan); }
+:root[data-theme="overclock"] .file-item{ border-color: var(--cyber-border); }
+:root[data-theme="overclock"] .switch input:checked + .switch-slider{ background: var(--cyber-primary); }
+:root[data-theme="overclock"] .text-input:focus,
+:root[data-theme="overclock"] .select-input:focus{ border-color: rgba(34,211,238,.6); }
